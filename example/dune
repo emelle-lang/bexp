@@ -1,0 +1,4 @@
+(executable
+  (name main)
+  (libraries base bexp)
+  (preprocess (pps js_of_ocaml-ppx)))

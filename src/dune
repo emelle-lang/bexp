@@ -1,0 +1,5 @@
+(library
+  (name bexp)
+  (public_name bexp)
+  (libraries base js_of_ocaml)
+  (preprocess (pps ppx_jane js_of_ocaml-ppx)))
