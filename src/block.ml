@@ -1,7 +1,7 @@
 open Base
-open Js_of_ocaml
 
 type ('sort, 'term) t = {
+    rect : Svg.rect;
     term : 'term;
     items : 'sort item list;
   }
@@ -14,4 +14,5 @@ and 'sort hole =
 
 and 'sort item =
   | Child of 'sort hole
-  | Svg of Dom_svg.useElement Svg.t (** A reference to a "keyword" *)
+  | Newline
+  | Svg of Svg.t (** A reference to a "keyword" *)

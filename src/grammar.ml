@@ -3,7 +3,7 @@ open Js_of_ocaml
 
 type symbol =
   | Nonterminal of int
-  | Terminal of Dom_svg.element Svg.t
+  | Terminal of Svg.t
 
 type production = {
     symbols : symbol list;
@@ -22,7 +22,8 @@ module Dsl = struct
     next ((Nonterminal id)::list) doc
 
   let text str next list doc =
-    next ((Terminal (Svg.text doc str :> Dom_svg.element Svg.t))::list) doc
+    let text_elem = new Svg.text doc str in
+    next ((Terminal (text_elem :> Svg.t))::list) doc
 
   let eval t = t []
 end
