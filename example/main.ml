@@ -2,18 +2,28 @@ open Base
 open Js_of_ocaml
 open Bexp
 
+type num_expr =
+  | Add of (block, num_expr) Block.t option ref
+           * (block, num_expr) Block.t option ref
+  | Num of int
+
+and block = Block of (block, num_expr) Block.t
+
 let doc = Dom_svg.document
 
-let concrete_syntax =
+let set_block r (Block nb) =
+  r := Some nb
+
+let make_plus () =
   let open Grammar in
-  let open Dsl in
-  { productions =
-      [ { symbols = eval (nt 0 @@ text "+" @@ nt 1 @@ empty) doc
-        }
-      ; { symbols = eval (nt 0 @@ text "-" @@ nt 1 @@ empty) doc
-        }
-      ]
-  }
+  let left = ref None in
+  let right = ref None in
+  let items = eval
+      (nt (Block.Hole(left, set_block))
+    @@ text "+"
+    @@ nt (Block.Hole(right, set_block))
+    @@ empty) doc
+  in Block.create doc (Add(left, right)) items
 
 let ctx =
   match
@@ -22,16 +32,8 @@ let ctx =
     |> Js.Opt.to_option
   with
   | None -> assert false
-  | Some svg -> Context.create concrete_syntax doc svg
+  | Some svg -> Context.create doc svg
 
-type num_expr =
-  | Add of (block, num_expr) Block.t option ref
-           * (block, num_expr) Block.t option ref
-  | Num of int
+let plus_block = make_plus ()
 
-and block =
-  | Num_block of (block, num_expr) Block.t
-
-let set_block r = function
-  | Num_block nb ->
-     r := Some nb
+let _ = Context.add_block ctx plus_block

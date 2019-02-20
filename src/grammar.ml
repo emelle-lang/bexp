@@ -1,29 +1,18 @@
 open Base
 open Js_of_ocaml
 
-type symbol =
-  | Nonterminal of int
-  | Terminal of Svg.t
+type 'sort t
+  = 'sort Block.item list
+  -> Dom_svg.document Js.t
+  -> 'sort Block.item list
 
-type production = {
-    symbols : symbol list;
-  }
+let empty list _doc = list
 
-type t = {
-    productions : production list;
-  }
+let nt hole next list doc =
+  next ((Block.Child hole)::list) doc
 
-module Dsl = struct
-  type t = symbol list -> Dom_svg.document Js.t -> symbol list
+let text str next list doc =
+  let text_elem = new Svg.text doc str in
+  next ((Block.Svg (text_elem :> Svg.t))::list) doc
 
-  let empty list _ = list
-
-  let nt id next list doc =
-    next ((Nonterminal id)::list) doc
-
-  let text str next list doc =
-    let text_elem = new Svg.text doc str in
-    next ((Terminal (text_elem :> Svg.t))::list) doc
-
-  let eval t = t []
-end
+let eval t = t []
