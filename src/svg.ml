@@ -4,6 +4,7 @@ open Js_of_ocaml
 class virtual t = object
   method virtual element : Dom_svg.element Js.t
   method virtual set_x : float -> unit
+  method virtual set_y : float -> unit
   method virtual width : float
 end
 
@@ -40,9 +41,7 @@ let render_transform x y =
 class group ?(x=0.0) ?(y=0.0) doc = object
   val mutable x = x
   val mutable y = y
-  val elem =
-    let group_elem = Dom_svg.createG doc in
-    group_elem
+  val elem = Dom_svg.createG doc
 
   initializer
     set_string_prop elem "transform" (render_transform x y)
@@ -56,6 +55,10 @@ class group ?(x=0.0) ?(y=0.0) doc = object
     set_string_prop elem "transform" (render_transform x y)
 
   method y = y
+
+  method set_y y' =
+    y <- y';
+    set_string_prop elem "transform" (render_transform x y)
 end
 
 class rect
@@ -79,11 +82,11 @@ class rect
 
   method element = elem
 
-  method x = elem##.x
+  method x = length_of_anim elem##.x
 
   method set_x = set_x elem
 
-  method y = elem##.y
+  method y = length_of_anim elem##.y
 
   method set_y = set_y elem
 
@@ -92,24 +95,40 @@ class rect
   method set_width = set_width elem
 
   method height = length_of_anim elem##.height
+
+  method set_height = set_height elem
 end
 
-class text doc text = object
+class text ?(x=0.0) ?(y=0.0) ?style doc text = object
+  val mutable x = x
+  val mutable y = y
   val elem =
     let text_elem = Dom_svg.createTextElement doc in
     ((Js.Unsafe.coerce text_elem)
      : <textContent : Js.js_string Js.t Js.prop> Js.t)##.textContent :=
       Js.string text;
+    Option.iter style ~f:(fun style ->
+        set_string_prop text_elem "style" style
+      );
     text_elem
+
+  initializer
+    set_x elem x;
+    set_y elem (y +. 15.0)
 
   method element = elem
 
-  method x = elem##.x
+  method x = x
 
-  method set_x = set_x elem
+  method set_x x' =
+    x <- x';
+    set_x elem x
 
-  method y = elem##.y
+  method y = y
 
-  method width =
-    elem##getComputedTextLength
+  method set_y y' =
+    y <- y';
+    set_y elem (y +. 15.0)
+
+  method width = elem##getComputedTextLength
 end

@@ -12,7 +12,7 @@ let nt hole next list doc =
   next ((Block.Child hole)::list) doc
 
 let text str next list doc =
-  let text_elem = new Svg.text doc str in
+  let text_elem = new Svg.text ~style:"fill:#ffffff" doc str in
   next ((Block.Svg (text_elem :> Svg.t))::list) doc
 
 let eval t = t []

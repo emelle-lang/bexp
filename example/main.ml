@@ -16,14 +16,13 @@ let set_block r (Block nb) =
 
 let make_plus () =
   let open Grammar in
-  let left = ref None in
-  let right = ref None in
-  let items = eval
-      (nt (Block.Hole(left, set_block))
-    @@ text "+"
-    @@ nt (Block.Hole(right, set_block))
-    @@ empty) doc
-  in Block.create doc (Add(left, right)) items
+  let left = Block.create_hole set_block doc in
+  let right = Block.create_hole set_block doc in
+  let items =
+    eval
+      (nt (Block.Hole left) @@ text "+" @@ nt (Block.Hole right) @@ empty)
+      doc
+  in Block.create doc (Add(left.Block.ptr, right.Block.ptr)) items
 
 let ctx =
   match
@@ -36,4 +35,4 @@ let ctx =
 
 let plus_block = make_plus ()
 
-let _ = Context.add_block ctx plus_block
+let _ = Context.add_block ctx plus_block.Block.block
