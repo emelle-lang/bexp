@@ -82,14 +82,17 @@ let drag block ev x_offset y_offset =
 let pick_up block ev =
   let x_offset = Float.of_int ev##.clientX -. block.group#x in
   let y_offset = Float.of_int ev##.clientY -. block.group#y in
-  block.group#element##.onmousemove :=
+  let doc = Dom_html.document in
+  doc##.onmousemove :=
     Dom.handler (fun ev ->
-        drag block (Js.Unsafe.coerce ev) x_offset y_offset;
+        drag block ev x_offset y_offset;
         Js._true
       );
-  block.group#element##.onmouseup :=
+  doc##.onmouseup :=
     Dom.handler (fun _ ->
-        block.group#element##.onmousemove := Dom.handler (fun _ -> Js._true);
+        let pure_handler = Dom.handler (fun _ -> Js._true) in
+        doc##.onmousemove := pure_handler;
+        doc##.onmouseup := pure_handler;
         Js._true
       )
 
