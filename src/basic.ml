@@ -49,10 +49,6 @@ and 'sort item =
   | Svg of Svg.t (** A reference to a "keyword" *)
   | Tab
 
-let in_box x y box_x box_y box_w box_h =
-  let open Float.O in
-  x >= box_x && x < box_x + box_w && y >= box_y && y < box_y + box_h
-
 module Hole = struct
   let create setter _ctx doc =
     { ptr = ref None
@@ -61,28 +57,6 @@ module Hole = struct
         new Svg.rect
           ~width:20.0 ~height:20.0 ~rx:5.0 ~ry:5.0 ~style:"fill:#a0a0a0" doc
     ; hole_parent = None }
-
-  let rec get_hovered_hole ((Hole hole) as h) x y =
-    match !(hole.ptr) with
-    | Some term ->
-       (* Relativize coordinates *)
-       let x = (x -. term.block.group#x) in
-       let y = (y -. term.block.group#y) in
-       List.fold term.block.items ~init:None ~f:(fun acc next ->
-           match acc with
-           | None ->
-              begin match next with
-              | Child hole -> get_hovered_hole hole x y
-              | _ -> None
-              end
-           | some -> some
-         )
-    | None ->
-       if in_box x y
-           hole.hole_svg#x hole.hole_svg#y
-           hole.hole_svg#width hole.hole_svg#height
-       then Some h
-       else None
 
   let highlight hole =
     hole.hole_svg#set_style "fill:#ffffff"
@@ -100,8 +74,7 @@ module Block = struct
       | item::items ->
          let x, y = match item with
            | Tab -> x +. 20.0, y
-           | Newline ->
-              0.0, y + 1
+           | Newline -> 0.0, y + 1
            | Svg svg ->
               svg#set_x x;
               svg#set_y (Float.of_int y *. col_height);
@@ -147,6 +120,39 @@ module Block = struct
         ignore (parent##appendChild elem)
       )
 
+  let in_box x y box_x box_y box_w box_h =
+    let open Float.O in
+    x >= box_x && x < box_x + box_w && y >= box_y && y < box_y + box_h
+
+  let rec get_hovered_hole block x y =
+    Option.bind block.dim ~f:(fun (width, block_cols) ->
+        if in_box x y block.group#x block.group#y
+             width (Float.of_int (block_cols + 1) *. col_height) then
+          (* Relativize coordinates *)
+          let x = (x -. block.group#x) in
+          let y = (y -. block.group#y) in
+          List.fold block.items ~init:None ~f:(fun acc next ->
+              match acc with
+              | None ->
+                 begin match next with
+                 | Child ((Hole hole) as h) ->
+                    begin match !(hole.ptr) with
+                    | Some term -> get_hovered_hole term.block x y
+                    | None ->
+                       if in_box x y
+                            hole.hole_svg#x hole.hole_svg#y
+                            hole.hole_svg#width hole.hole_svg#height
+                       then Some h
+                       else None
+                    end
+                 | _ -> None
+                 end
+              | some -> some
+            )
+        else
+          None
+      )
+
   let drag block ev x_offset y_offset =
     let x = (Float.of_int ev##.clientX -. x_offset) in
     let y = (Float.of_int ev##.clientY -. y_offset) in
@@ -158,19 +164,7 @@ module Block = struct
     let hole =
       Doubly_linked.fold block.ctx.scripts ~init:None ~f:(fun acc next_block ->
           match acc with
-          | None ->
-             List.fold next_block.items ~init:None ~f:(fun acc next ->
-                 match acc with
-                 | None ->
-                    begin match next with
-                    | Child hole ->
-                       let x = x -. next_block.group#x in
-                       let y = y -. next_block.group#y in
-                       Hole.get_hovered_hole hole x y
-                    | _ -> None
-                    end
-                 | some -> some
-               )
+          | None -> get_hovered_hole next_block x y
           | some -> some
         ) in
     match hole with
