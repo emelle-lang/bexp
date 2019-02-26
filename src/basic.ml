@@ -1,19 +1,30 @@
-open Base
+open Core_kernel
 open Js_of_ocaml
 
-type ctx = {
+type 'sort ctx = {
     palette_rect : Dom_svg.rectElement Js.t;
     svg : Dom_svg.svgElement Js.t;
+    mutable picked_up_block : 'sort block option;
+    scripts : 'sort block Doubly_linked.t;
+    mutable drop_candidate : 'sort hole option;
   }
 
-type 'sort block = {
+and 'sort block = {
     group : Svg.group;
     rect : Svg.rect;
     items : 'sort item list;
     mutable dim : (float * int) option;
       (** The cached width and column count. The column is an integer because it
           is counted in discrete intervals! *)
+    mutable parent : 'sort parent;
+    ctx : 'sort ctx;
+    mutable iterator : 'sort block Doubly_linked.Elt.t option
   }
+
+and 'sort parent =
+  | Hole_parent of 'sort hole
+  | Root
+  | Unattached
 
 and ('sort, 'term) term = {
     block : 'sort block;
@@ -24,6 +35,7 @@ and ('sort, 'term) hole' = {
     ptr : ('sort, 'term) term option ref;
     setter : ('sort, 'term) term option ref -> 'sort -> unit;
     hole_svg : Svg.rect;
+    mutable hole_parent : 'sort block option;
   }
 
 (** A hole is a GADT with the term type as an existential. Therefore, holes of
@@ -37,19 +49,52 @@ and 'sort item =
   | Svg of Svg.t (** A reference to a "keyword" *)
   | Tab
 
+let in_box x y box_x box_y box_w box_h =
+  let open Float.O in
+  x >= box_x && x < box_x + box_w && y >= box_y && y < box_y + box_h
+
 module Hole = struct
-  let create setter doc =
+  let create setter _ctx doc =
     { ptr = ref None
     ; setter
     ; hole_svg =
         new Svg.rect
-          ~width:20.0 ~height:20.0 ~rx:5.0 ~ry:5.0 ~style:"fill:#a0a0a0" doc }
+          ~width:20.0 ~height:20.0 ~rx:5.0 ~ry:5.0 ~style:"fill:#a0a0a0" doc
+    ; hole_parent = None }
+
+  let rec get_hovered_hole ((Hole hole) as h) x y =
+    match !(hole.ptr) with
+    | Some term ->
+       (* Relativize coordinates *)
+       let x = (x -. term.block.group#x) in
+       let y = (y -. term.block.group#y) in
+       List.fold term.block.items ~init:None ~f:(fun acc next ->
+           match acc with
+           | None ->
+              begin match next with
+              | Child hole -> get_hovered_hole hole x y
+              | _ -> None
+              end
+           | some -> some
+         )
+    | None ->
+       if in_box x y
+           hole.hole_svg#x hole.hole_svg#y
+           hole.hole_svg#width hole.hole_svg#height
+       then Some h
+       else None
+
+  let highlight hole =
+    hole.hole_svg#set_style "fill:#ffffff"
+
+  let unhighlight hole =
+    hole.hole_svg#set_style "fill:#a0a0a0"
 end
 
 module Block = struct
   let col_height = 25.0
 
-  let rec render block : float * int =
+  let rec render_helper block : float * int =
     let rec loop max_width x y = function
       | [] -> max_width, y
       | item::items ->
@@ -70,7 +115,7 @@ module Block = struct
               | Some block ->
                  let (dx, dy) = match block.block.dim with
                    | Some dim -> dim
-                   | None -> render block.block
+                   | None -> render_helper block.block
                  in (x +. dx, y + dy)
          in
          let max_width = Float.max max_width x in
@@ -81,6 +126,15 @@ module Block = struct
     block.rect#set_height (Float.of_int (height + 1) *. col_height);
     block.dim <- Some dim;
     dim
+
+  let rec render block =
+    ignore (render_helper block);
+    match block.parent with
+    | Hole_parent (Hole hole) ->
+       Option.iter hole.hole_parent ~f:(fun block ->
+           render block
+         )
+    | _ -> ()
 
   let append_to_group block child =
     ignore
@@ -94,8 +148,40 @@ module Block = struct
       )
 
   let drag block ev x_offset y_offset =
-    block.group#set_x (Float.of_int ev##.clientX -. x_offset);
-    block.group#set_y (Float.of_int ev##.clientY -. y_offset)
+    let x = (Float.of_int ev##.clientX -. x_offset) in
+    let y = (Float.of_int ev##.clientY -. y_offset) in
+    block.group#set_x x;
+    block.group#set_y y;
+    Option.iter block.ctx.drop_candidate ~f:(fun (Hole hole) ->
+        Hole.unhighlight hole
+      );
+    let hole =
+      Doubly_linked.fold block.ctx.scripts ~init:None ~f:(fun acc next_block ->
+          match acc with
+          | None ->
+             List.fold next_block.items ~init:None ~f:(fun acc next ->
+                 match acc with
+                 | None ->
+                    begin match next with
+                    | Child hole ->
+                       let x = x -. next_block.group#x in
+                       let y = y -. next_block.group#y in
+                       Hole.get_hovered_hole hole x y
+                    | _ -> None
+                    end
+                 | some -> some
+               )
+          | some -> some
+        ) in
+    match hole with
+    | None ->
+       block.ctx.drop_candidate <- None
+    | Some ((Hole hole) as h) ->
+       block.ctx.drop_candidate <- Some h;
+       Hole.highlight hole
+
+  let drop block =
+    block.iterator <- Some (Doubly_linked.insert_first block.ctx.scripts block)
 
   let pick_up block ev =
     let x_offset = Float.of_int ev##.clientX -. block.group#x in
@@ -108,26 +194,44 @@ module Block = struct
         );
     doc##.onmouseup :=
       Dom.handler (fun _ ->
+          drop block;
           let pure_handler = Dom.handler (fun _ -> Js._true) in
           doc##.onmousemove := pure_handler;
           doc##.onmouseup := pure_handler;
           Js._true
         );
+    begin match block.parent with
+    | Hole_parent (Hole hole) ->
+       hole.ptr := None;
+       Option.iter hole.hole_parent ~f:(fun parent ->
+           ignore (render parent)
+         )
+    | _ -> ()
+    end;
+    block.parent <- Root;
+    block.ctx.picked_up_block <- Some block;
+    Option.iter block.iterator ~f:(fun elt ->
+        Doubly_linked.remove block.ctx.scripts elt
+      );
+    block.iterator <- None;
     move_to_front block
 
-  let create ?(x=0.0) ?(y=0.0) doc term items =
+  let create ?(x=0.0) ?(y=0.0) _sort_of_term doc ctx term items =
     let block =
       { group = new Svg.group ~x ~y doc
       ; rect = new Svg.rect doc ~rx:5.0 ~ry:5.0 ~style:"fill:#ff0000"
       ; items
-      ; dim = None } in
+      ; dim = None
+      ; parent = Unattached
+      ; ctx
+      ; iterator = None } in
     append_to_group block block.rect;
     List.iter items ~f:(function
         | Svg svg -> append_to_group block svg
         | Child (Hole hole) ->
+           hole.hole_parent <- Some block;
            begin match !(hole.ptr) with
-           | None ->
-              append_to_group block hole.hole_svg
+           | None -> append_to_group block hole.hole_svg
            | _ -> ()
            end
       | _ -> ()
@@ -162,9 +266,15 @@ let create doc svg =
   Svg.set_width palette_rect 50.0;
   Svg.set_height palette_rect height;
   let _ = svg##appendChild (palette_rect :> Dom.node Js.t) in
-  { palette_rect; svg }
+  { palette_rect
+  ; svg
+  ; picked_up_block = None
+  ; scripts = Doubly_linked.create ()
+  ; drop_candidate = None }
 
 let add_block ctx block =
+  block.parent <- Root;
+  block.iterator <- Some (Doubly_linked.insert_first ctx.scripts block);
   ignore (ctx.svg##appendChild (block.group#element :> Dom.node Js.t));
   (* Render the block upon entry into DOM rather than construction so that
      text.getComputedTextLength() works correctly *)

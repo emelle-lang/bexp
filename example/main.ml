@@ -16,18 +16,20 @@ let doc = Dom_svg.document
 let set_block r (Block nb) =
   r := Some nb
 
-let make_plus () =
-  let open Bexp.Builder in
-  let left = Bexp.Hole.create set_block doc in
-  let right = Bexp.Hole.create set_block doc in
-  let items = eval doc [nt left; text "+"; nt right] in
-  Bexp.Block.create doc (Add(left.Bexp.ptr, right.Bexp.ptr)) items
+let f x = Block x
 
-let make_if () =
+let make_plus ctx =
   let open Bexp.Builder in
-  let pred = Bexp.Hole.create set_block doc in
-  let conseq = Bexp.Hole.create set_block doc in
-  let otherwise = Bexp.Hole.create set_block doc in
+  let left = Bexp.Hole.create set_block ctx doc in
+  let right = Bexp.Hole.create set_block ctx doc in
+  let items = eval doc [nt left; text "+"; nt right] in
+  Bexp.Block.create f doc ctx (Add(left.Bexp.ptr, right.Bexp.ptr)) items
+
+let make_if ctx =
+  let open Bexp.Builder in
+  let pred = Bexp.Hole.create set_block ctx doc in
+  let conseq = Bexp.Hole.create set_block ctx doc in
+  let otherwise = Bexp.Hole.create set_block ctx doc in
   let items =
     eval doc
       [text "if"; nt pred; text "then"; newline;
@@ -35,7 +37,7 @@ let make_if () =
        text "else"; newline;
        tab; nt otherwise
       ] in
-  Bexp.Block.create doc
+  Bexp.Block.create f doc ctx
     (If(pred.Bexp.ptr, conseq.Bexp.ptr, otherwise.Bexp.ptr)) items
 
 let ctx =
@@ -47,9 +49,9 @@ let ctx =
   | None -> assert false
   | Some svg -> Bexp.create doc svg
 
-let plus_block = make_plus ()
+let plus_block = make_plus ctx
 
-let if_block = make_if ()
+let if_block = make_if ctx
 
 let _ = Bexp.add_block ctx plus_block.Bexp.block
 

@@ -97,6 +97,8 @@ class rect
   method height = length_of_anim elem##.height
 
   method set_height = set_height elem
+
+  method set_style = set_string_prop elem "style"
 end
 
 class text ?(x=0.0) ?(y=0.0) ?style doc text = object
