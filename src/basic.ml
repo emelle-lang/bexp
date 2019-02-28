@@ -4,8 +4,8 @@ open Js_of_ocaml
 type 'sort ctx = {
     palette_rect : Dom_svg.rectElement Js.t;
     svg : Dom_svg.svgElement Js.t;
-    mutable picked_up_block : 'sort block option;
-    scripts : 'sort block Doubly_linked.t;
+    mutable picked_up_block : 'sort term option;
+    scripts : 'sort term Doubly_linked.t;
     mutable drop_candidate : 'sort hole option;
   }
 
@@ -18,22 +18,26 @@ and 'sort block = {
           is counted in discrete intervals! *)
     mutable parent : 'sort parent;
     ctx : 'sort ctx;
-    mutable iterator : 'sort block Doubly_linked.Elt.t option
+    mutable iterator : 'sort term Doubly_linked.Elt.t option
   }
 
 and 'sort parent =
   | Hole_parent of 'sort hole
-  | Root
+  | Picked_up
+  | Root of 'sort term Doubly_linked.Elt.t
   | Unattached
 
-and ('sort, 'term) term = {
+and ('sort, 'term) term' = {
     block : 'sort block;
     term : 'term;
+    sort_of_term : ('sort, 'term) term' -> 'sort;
   }
 
+and 'sort term = Term : ('sort, 'term) term' -> 'sort term
+
 and ('sort, 'term) hole' = {
-    ptr : ('sort, 'term) term option ref;
-    setter : ('sort, 'term) term option ref -> 'sort -> unit;
+    ptr : ('sort, 'term) term' option ref;
+    term_of_sort : 'sort -> ('sort, 'term) term' option;
     hole_svg : Svg.rect;
     mutable hole_parent : 'sort block option;
   }
@@ -50,9 +54,9 @@ and 'sort item =
   | Tab
 
 module Hole = struct
-  let create setter _ctx doc =
+  let create term_of_sort doc =
     { ptr = ref None
-    ; setter
+    ; term_of_sort
     ; hole_svg =
         new Svg.rect
           ~width:20.0 ~height:20.0 ~rx:5.0 ~ry:5.0 ~style:"fill:#a0a0a0" doc
@@ -85,10 +89,12 @@ module Block = struct
                  hole_svg#set_x x;
                  hole_svg#set_y (Float.of_int y *. col_height);
                  x +. hole_svg#width, y
-              | Some block ->
-                 let (dx, dy) = match block.block.dim with
+              | Some term ->
+                 term.block.group#set_x x;
+                 term.block.group#set_y (Float.of_int y *. col_height);
+                 let (dx, dy) = match term.block.dim with
                    | Some dim -> dim
-                   | None -> render_helper block.block
+                   | None -> render_helper term.block
                  in (x +. dx, y + dy)
          in
          let max_width = Float.max max_width x in
@@ -100,14 +106,36 @@ module Block = struct
     block.dim <- Some dim;
     dim
 
-  let rec render block =
-    ignore (render_helper block);
-    match block.parent with
-    | Hole_parent (Hole hole) ->
-       Option.iter hole.hole_parent ~f:(fun block ->
-           render block
-         )
-    | _ -> ()
+  let render block =
+    let rec render x y block =
+      ignore (render_helper block);
+      let x = x +. block.group#x in
+      let y = y +. block.group#y in
+      match block.parent with
+      | Hole_parent (Hole hole) ->
+         begin match hole.hole_parent with
+         | Some parent -> render x y parent
+         | None -> (x, y)
+         end
+      | _ -> (x, y)
+    in render 0.0 0.0 block
+
+  let clear hole =
+    Option.iter !(hole.ptr) ~f:(fun term ->
+        Option.iter hole.hole_parent ~f:(fun parent ->
+            ignore (
+                parent.group#element##removeChild
+                  (term.block.group#element :> Dom.node Js.t));
+            ignore (
+                parent.group#element##appendChild
+                  (hole.hole_svg#element :> Dom.node Js.t)
+              )
+          )
+      );
+    hole.ptr := None;
+    match hole.hole_parent with
+    | Some parent -> render parent
+    | None -> (0.0, 0.0)
 
   let append_to_group block child =
     ignore
@@ -149,8 +177,7 @@ module Block = struct
                  end
               | some -> some
             )
-        else
-          None
+        else None
       )
 
   let drag block ev x_offset y_offset =
@@ -162,9 +189,10 @@ module Block = struct
         Hole.unhighlight hole
       );
     let hole =
-      Doubly_linked.fold block.ctx.scripts ~init:None ~f:(fun acc next_block ->
+      Doubly_linked.fold block.ctx.scripts ~init:None
+        ~f:(fun acc (Term t) ->
           match acc with
-          | None -> get_hovered_hole next_block x y
+          | None -> get_hovered_hole t.block x y
           | some -> some
         ) in
     match hole with
@@ -174,10 +202,38 @@ module Block = struct
        block.ctx.drop_candidate <- Some h;
        Hole.highlight hole
 
-  let drop block =
-    block.iterator <- Some (Doubly_linked.insert_first block.ctx.scripts block)
+  let drop ((Term term) as t) =
+    let f () =
+      term.block.parent <-
+        Root (Doubly_linked.insert_first term.block.ctx.scripts t);
+    in
+    match term.block.ctx.drop_candidate with
+    | None -> f ()
+    | Some (Hole hole) ->
+       match hole.term_of_sort (term.sort_of_term term) with
+       | None -> f ()
+       | Some term ->
+          hole.ptr := Some term;
+          term.block.parent <- Hole_parent (Hole hole);
+          Option.iter hole.hole_parent ~f:(fun parent ->
+              append_to_group parent term.block.group;
+              ignore (render parent)
+            )
 
-  let pick_up block ev =
+  let pick_up ((Term term) as t) ev =
+    let block = term.block in
+    begin match block.parent with
+    | Hole_parent (Hole hole) ->
+       let (x, y) = clear hole in
+       block.group#set_x (block.group#x +. x);
+       block.group#set_y (block.group#y +. y);
+       Option.iter hole.hole_parent ~f:(fun parent ->
+           ignore (render parent)
+         )
+    | Root iterator ->
+       Doubly_linked.remove block.ctx.scripts iterator
+    | _ -> ()
+    end;
     let x_offset = Float.of_int ev##.clientX -. block.group#x in
     let y_offset = Float.of_int ev##.clientY -. block.group#y in
     let doc = Dom_html.document in
@@ -188,29 +244,18 @@ module Block = struct
         );
     doc##.onmouseup :=
       Dom.handler (fun _ ->
-          drop block;
+          drop t;
           let pure_handler = Dom.handler (fun _ -> Js._true) in
           doc##.onmousemove := pure_handler;
           doc##.onmouseup := pure_handler;
           Js._true
         );
-    begin match block.parent with
-    | Hole_parent (Hole hole) ->
-       hole.ptr := None;
-       Option.iter hole.hole_parent ~f:(fun parent ->
-           ignore (render parent)
-         )
-    | _ -> ()
-    end;
-    block.parent <- Root;
-    block.ctx.picked_up_block <- Some block;
-    Option.iter block.iterator ~f:(fun elt ->
-        Doubly_linked.remove block.ctx.scripts elt
-      );
-    block.iterator <- None;
+    block.parent <- Picked_up;
+    ignore (block.ctx.svg##appendChild (block.group#element :> Dom.node Js.t));
+    block.ctx.picked_up_block <- Some t;
     move_to_front block
 
-  let create ?(x=0.0) ?(y=0.0) _sort_of_term doc ctx term items =
+  let create ?(x=0.0) ?(y=0.0) sort_of_term doc ctx term items =
     let block =
       { group = new Svg.group ~x ~y doc
       ; rect = new Svg.rect doc ~rx:5.0 ~ry:5.0 ~style:"fill:#ff0000"
@@ -219,6 +264,7 @@ module Block = struct
       ; parent = Unattached
       ; ctx
       ; iterator = None } in
+    let term = { term; block; sort_of_term } in
     append_to_group block block.rect;
     List.iter items ~f:(function
         | Svg svg -> append_to_group block svg
@@ -232,10 +278,11 @@ module Block = struct
       );
     block.group#element##.onmousedown :=
       Dom.handler (fun ev ->
-          pick_up block ev;
+          pick_up (Term term) ev;
+          Dom_html.stopPropagation ev;
           Js._true
         );
-    { term; block }
+    term
 end
 
 module Builder = struct
@@ -266,10 +313,10 @@ let create doc svg =
   ; scripts = Doubly_linked.create ()
   ; drop_candidate = None }
 
-let add_block ctx block =
-  block.parent <- Root;
-  block.iterator <- Some (Doubly_linked.insert_first ctx.scripts block);
-  ignore (ctx.svg##appendChild (block.group#element :> Dom.node Js.t));
+let add_block ctx term =
+  term.block.parent <-
+    Root (Doubly_linked.insert_first ctx.scripts (Term term));
+  ignore (ctx.svg##appendChild (term.block.group#element :> Dom.node Js.t));
   (* Render the block upon entry into DOM rather than construction so that
      text.getComputedTextLength() works correctly *)
-  Block.render block
+  Block.render term.block
