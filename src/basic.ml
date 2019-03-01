@@ -1,54 +1,66 @@
 open Core_kernel
 open Js_of_ocaml
 
-type 'sort ctx = {
+(** Throughout the code, the data types are parameterized by the ['sorts]. The
+    ['sorts] type variable represents the set of "sorts" of a language or logic,
+    which is basically the classification of the different symbol classes. In
+    this library, the various terms of the language can have different types,
+    but so we use sorts to be able to use them together. *)
+
+type 'sorts ctx = {
     palette_rect : Dom_svg.rectElement Js.t;
     svg : Dom_svg.svgElement Js.t;
-    mutable picked_up_block : 'sort term option;
-    scripts : 'sort term Doubly_linked.t;
-    mutable drop_candidate : 'sort hole option;
+    mutable picked_up_block : 'sorts term option;
+    scripts : 'sorts term Doubly_linked.t;
+    mutable drop_candidate : 'sorts hole option;
   }
 
-and 'sort block = {
+and 'sorts block = {
     group : Svg.group;
     rect : Svg.rect;
-    items : 'sort item list;
+    items : 'sorts item list;
     mutable dim : (float * int) option;
       (** The cached width and column count. The column is an integer because it
           is counted in discrete intervals! *)
-    mutable parent : 'sort parent;
-    ctx : 'sort ctx;
-    mutable iterator : 'sort term Doubly_linked.Elt.t option
+    mutable parent : 'sorts parent;
+    ctx : 'sorts ctx;
+    mutable iterator : 'sorts term Doubly_linked.Elt.t option
   }
 
-and 'sort parent =
-  | Hole_parent of 'sort hole
+and 'sorts parent =
+  | Hole_parent of 'sorts hole
   | Picked_up
-  | Root of 'sort term Doubly_linked.Elt.t
+  | Root of 'sorts term Doubly_linked.Elt.t
   | Unattached
 
-and ('sort, 'term) term' = {
-    block : 'sort block;
+(** [term'] is parameterized by both ['sorts] and ['term] types. This is because
+    the [term'] type needs to store the AST ['term] that it wraps. [term'] also
+    contains a function that packs the [term'] into a sort. *)
+
+and ('sorts, 'term) term' = {
+    block : 'sorts block;
     term : 'term;
-    sort_of_term : ('sort, 'term) term' -> 'sort;
+    sort_of_term : ('sorts, 'term) term' -> 'sorts;
   }
 
-and 'sort term = Term : ('sort, 'term) term' -> 'sort term
+(** In order for terms of different sorts to be used together, the term type
+    needs to be abstracted away in an existential. *)
+and 'sorts term = Term : ('sorts, 'term) term' -> 'sorts term
 
-and ('sort, 'term) hole' = {
-    ptr : ('sort, 'term) term' option ref;
-    term_of_sort : 'sort -> ('sort, 'term) term' option;
+and ('sorts, 'term) hole' = {
+    ptr : ('sorts, 'term) term' option ref;
+    term_of_sort : 'sorts -> ('sorts, 'term) term' option;
     hole_svg : Svg.rect;
-    mutable hole_parent : 'sort block option;
+    mutable hole_parent : 'sorts block option;
   }
 
 (** A hole is a GADT with the term type as an existential. Therefore, holes of
     differently sorted terms can be used together while retaining type safety.
  *)
-and 'sort hole = Hole : ('sort, 'term) hole' -> 'sort hole
+and 'sorts hole = Hole : ('sorts, 'term) hole' -> 'sorts hole
 
-and 'sort item =
-  | Child of 'sort hole
+and 'sorts item =
+  | Child of 'sorts hole
   | Newline
   | Svg of Svg.t (** A reference to a "keyword" *)
   | Tab
@@ -72,7 +84,10 @@ end
 module Block = struct
   let col_height = 25.0
 
-  let rec render_helper block : float * int =
+  (* Returns the dimensions of the rendered block, which are used in its
+     recursive calls when handling child blocks that have not been rendered yet
+   *)
+  let rec render_block_and_children block : float * int =
     let rec loop max_width x y = function
       | [] -> max_width, y
       | item::items ->
@@ -94,7 +109,7 @@ module Block = struct
                  term.block.group#set_y (Float.of_int y *. col_height);
                  let (dx, dy) = match term.block.dim with
                    | Some dim -> dim
-                   | None -> render_helper term.block
+                   | None -> render_block_and_children term.block
                  in (x +. dx, y + dy)
          in
          let max_width = Float.max max_width x in
@@ -106,19 +121,28 @@ module Block = struct
     block.dim <- Some dim;
     dim
 
-  let render block =
-    let rec render x y block =
-      ignore (render_helper block);
+  (* Renders a block, then recursively renders its parents until reaching the
+     root block. Returns the (x, y) offset from the original block, for use in
+     converting from local to global coordinates.
+
+     This function is used when picking up a block, where its ancestor blocks
+     need to be re-rendered. The picked-up block needs to have its coordinates
+     converted from relative to the parent block to relative to the editor, so
+     this function does the work of accumulating the offset during the process
+     of walking down the ancestors. *)
+  let render_block_and_parents block =
+    let rec go x y block =
+      ignore (render_block_and_children block);
       let x = x +. block.group#x in
       let y = y +. block.group#y in
       match block.parent with
       | Hole_parent (Hole hole) ->
          begin match hole.hole_parent with
-         | Some parent -> render x y parent
+         | Some parent -> go x y parent
          | None -> (x, y)
          end
       | _ -> (x, y)
-    in render 0.0 0.0 block
+    in go 0.0 0.0 block
 
   let clear hole =
     Option.iter !(hole.ptr) ~f:(fun term ->
@@ -134,7 +158,7 @@ module Block = struct
       );
     hole.ptr := None;
     match hole.hole_parent with
-    | Some parent -> render parent
+    | Some parent -> render_block_and_parents parent
     | None -> (0.0, 0.0)
 
   let append_to_group block child =
@@ -148,12 +172,15 @@ module Block = struct
         ignore (parent##appendChild elem)
       )
 
+  (* Checks if coordinates are inside the box *)
   let in_box x y box_x box_y box_w box_h =
     let open Float.O in
     x >= box_x && x < box_x + box_w && y >= box_y && y < box_y + box_h
 
-  let rec get_hovered_hole block x y =
+  (* Searches for a block hole that is under the given coordinates *)
+  let rec find_hovered_hole block x y =
     Option.bind block.dim ~f:(fun (width, block_cols) ->
+        (* Are coordinates in block? *)
         if in_box x y block.group#x block.group#y
              width (Float.of_int (block_cols + 1) *. col_height) then
           (* Relativize coordinates *)
@@ -165,7 +192,7 @@ module Block = struct
                  begin match next with
                  | Child ((Hole hole) as h) ->
                     begin match !(hole.ptr) with
-                    | Some term -> get_hovered_hole term.block x y
+                    | Some term -> find_hovered_hole term.block x y
                     | None ->
                        if in_box x y
                             hole.hole_svg#x hole.hole_svg#y
@@ -180,7 +207,8 @@ module Block = struct
         else None
       )
 
-  let drag block ev x_offset y_offset =
+  let drag term ev x_offset y_offset =
+    let block = term.block in
     let x = (Float.of_int ev##.clientX -. x_offset) in
     let y = (Float.of_int ev##.clientY -. y_offset) in
     block.group#set_x x;
@@ -192,15 +220,19 @@ module Block = struct
       Doubly_linked.fold block.ctx.scripts ~init:None
         ~f:(fun acc (Term t) ->
           match acc with
-          | None -> get_hovered_hole t.block x y
+          | None -> find_hovered_hole t.block x y
           | some -> some
         ) in
     match hole with
     | None ->
        block.ctx.drop_candidate <- None
     | Some ((Hole hole) as h) ->
-       block.ctx.drop_candidate <- Some h;
-       Hole.highlight hole
+       match hole.term_of_sort (term.sort_of_term term) with
+       | None ->
+          block.ctx.drop_candidate <- None
+       | Some _ ->
+          block.ctx.drop_candidate <- Some h;
+          Hole.highlight hole
 
   let drop ((Term term) as t) =
     let f () =
@@ -217,7 +249,7 @@ module Block = struct
           term.block.parent <- Hole_parent (Hole hole);
           Option.iter hole.hole_parent ~f:(fun parent ->
               append_to_group parent term.block.group;
-              ignore (render parent)
+              ignore (render_block_and_parents parent)
             )
 
   let pick_up ((Term term) as t) ev =
@@ -228,7 +260,7 @@ module Block = struct
        block.group#set_x (block.group#x +. x);
        block.group#set_y (block.group#y +. y);
        Option.iter hole.hole_parent ~f:(fun parent ->
-           ignore (render parent)
+           ignore (render_block_and_parents parent)
          )
     | Root iterator ->
        Doubly_linked.remove block.ctx.scripts iterator
@@ -239,7 +271,7 @@ module Block = struct
     let doc = Dom_html.document in
     doc##.onmousemove :=
       Dom.handler (fun ev ->
-          drag block ev x_offset y_offset;
+          drag term ev x_offset y_offset;
           Js._true
         );
     doc##.onmouseup :=
@@ -319,4 +351,4 @@ let add_block ctx term =
   ignore (ctx.svg##appendChild (term.block.group#element :> Dom.node Js.t));
   (* Render the block upon entry into DOM rather than construction so that
      text.getComputedTextLength() works correctly *)
-  Block.render term.block
+  ignore (Block.render_block_and_children term.block)
