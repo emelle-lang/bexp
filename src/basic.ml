@@ -71,11 +71,14 @@ module Hole = struct
     ; term_of_sort
     ; hole_svg =
         new Svg.rect
-          ~width:20.0 ~height:20.0 ~rx:5.0 ~ry:5.0 ~style:"fill:#a0a0a0" doc
+          ~width:18.0 ~height:18.0 ~rx:5.0 ~ry:5.0 ~style:"fill:#a0a0a0" doc
     ; hole_parent = None }
 
   let highlight hole =
     hole.hole_svg#set_style "fill:#ffffff"
+
+  let highlight_error hole =
+    hole.hole_svg#set_style "fill:#ffa0a0"
 
   let unhighlight hole =
     hole.hole_svg#set_style "fill:#a0a0a0"
@@ -88,34 +91,37 @@ module Block = struct
      recursive calls when handling child blocks that have not been rendered yet
    *)
   let rec render_block_and_children block : float * int =
+    let horiz_padding = 4.0 in
     let rec loop max_width x y = function
       | [] -> max_width, y
       | item::items ->
          let x, y = match item with
            | Tab -> x +. 20.0, y
-           | Newline -> 0.0, y + 1
+           | Newline -> horiz_padding, y + 1
            | Svg svg ->
               svg#set_x x;
               svg#set_y (Float.of_int y *. col_height);
-              x +. svg#width, y
-           | Child (Hole { ptr; hole_svg;_ }) ->
+              x +. svg#width +. horiz_padding, y
+           | Child (Hole { ptr; hole_svg; _ }) ->
               match !ptr with
               | None ->
                  hole_svg#set_x x;
                  hole_svg#set_y (Float.of_int y *. col_height);
-                 x +. hole_svg#width, y
+                 x +. hole_svg#width +. horiz_padding, y
               | Some term ->
                  term.block.group#set_x x;
                  term.block.group#set_y (Float.of_int y *. col_height);
                  let (dx, dy) = match term.block.dim with
                    | Some dim -> dim
                    | None -> render_block_and_children term.block
-                 in (x +. dx, y + dy)
+                 in (x +. dx +. horiz_padding, y + dy)
          in
          let max_width = Float.max max_width x in
          loop max_width x y items
     in
-    let (width, height) as dim = loop 0.0 0.0 0 block.items in
+    let (width, height) as dim =
+      loop horiz_padding horiz_padding 0 block.items
+    in
     block.rect#set_width width;
     block.rect#set_height (Float.of_int (height + 1) *. col_height);
     block.dim <- Some dim;
@@ -144,26 +150,23 @@ module Block = struct
       | _ -> (x, y)
     in go 0.0 0.0 block
 
+  let append_to_group block child =
+    ignore (block.group#element##appendChild (child#element :> Dom.node Js.t))
+
+  let remove_from_group block child =
+    ignore (block.group#element##removeChild (child#element :> Dom.node Js.t))
+
   let clear hole =
     Option.iter !(hole.ptr) ~f:(fun term ->
         Option.iter hole.hole_parent ~f:(fun parent ->
-            ignore (
-                parent.group#element##removeChild
-                  (term.block.group#element :> Dom.node Js.t));
-            ignore (
-                parent.group#element##appendChild
-                  (hole.hole_svg#element :> Dom.node Js.t)
-              )
+            remove_from_group parent term.block.group;
+            append_to_group parent hole.hole_svg
           )
       );
     hole.ptr := None;
     match hole.hole_parent with
     | Some parent -> render_block_and_parents parent
     | None -> (0.0, 0.0)
-
-  let append_to_group block child =
-    ignore
-      (block.group#element##appendChild (child#element :> Dom.node Js.t))
 
   let move_to_front block =
     let elem = (block.group#element :> Dom.node Js.t) in
@@ -229,7 +232,8 @@ module Block = struct
     | Some ((Hole hole) as h) ->
        match hole.term_of_sort (term.sort_of_term term) with
        | None ->
-          block.ctx.drop_candidate <- None
+          block.ctx.drop_candidate <- Some h;
+          Hole.highlight_error hole
        | Some _ ->
           block.ctx.drop_candidate <- Some h;
           Hole.highlight hole
@@ -243,7 +247,9 @@ module Block = struct
     | None -> f ()
     | Some (Hole hole) ->
        match hole.term_of_sort (term.sort_of_term term) with
-       | None -> f ()
+       | None ->
+          f ();
+          Hole.unhighlight hole
        | Some term ->
           hole.ptr := Some term;
           term.block.parent <- Hole_parent (Hole hole);
@@ -288,9 +294,10 @@ module Block = struct
     move_to_front block
 
   let create ?(x=0.0) ?(y=0.0) sort_of_term doc ctx term items =
+    let style = "fill:#ff0000; stroke-width:3; stroke:#ffffff" in
     let block =
       { group = new Svg.group ~x ~y doc
-      ; rect = new Svg.rect doc ~rx:5.0 ~ry:5.0 ~style:"fill:#ff0000"
+      ; rect = new Svg.rect doc ~rx:5.0 ~ry:5.0 ~style
       ; items
       ; dim = None
       ; parent = Unattached
@@ -306,7 +313,7 @@ module Block = struct
            | None -> append_to_group block hole.hole_svg
            | _ -> ()
            end
-      | _ -> ()
+        | _ -> ()
       );
     block.group#element##.onmousedown :=
       Dom.handler (fun ev ->
