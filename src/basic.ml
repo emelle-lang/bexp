@@ -210,12 +210,27 @@ module Block = struct
         else None
       )
 
+  let restrict_bounds block =
+    let open Float.O in
+    let svg_width = Svg.length_of_anim block.ctx.svg##.width in
+    if block.group#x < 0.0 then
+      block.group#set_x 0.0
+    else if block.group#x +. block.rect#width > svg_width then
+      block.group#set_x (svg_width -. block.rect#width)
+    ;
+    let svg_height = Svg.length_of_anim block.ctx.svg##.height in
+    if block.group#y < 0.0 then
+      block.group#set_y 0.0
+    else if block.group#y +. block.rect#height > svg_height then
+      block.group#set_y (svg_height -. block.rect#height)
+
   let drag term ev x_offset y_offset =
     let block = term.block in
     let x = (Float.of_int ev##.clientX -. x_offset) in
     let y = (Float.of_int ev##.clientY -. y_offset) in
     block.group#set_x x;
     block.group#set_y y;
+    restrict_bounds block;
     Option.iter block.ctx.drop_candidate ~f:(fun (Hole hole) ->
         Hole.unhighlight hole
       );
