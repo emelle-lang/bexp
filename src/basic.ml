@@ -16,8 +16,7 @@ type 'sorts ctx = {
   }
 
 and 'sorts block = {
-    group : Svg.group;
-    rect : Svg.rect;
+    group : Widget.group;
     items : 'sorts item list;
     mutable dim : (float * int) option;
       (** The cached width and column count. The column is an integer because it
@@ -50,7 +49,7 @@ and 'sorts term = Term : ('sorts, 'term) term' -> 'sorts term
 and ('sorts, 'term) hole' = {
     ptr : ('sorts, 'term) term' option ref;
     term_of_sort : 'sorts -> ('sorts, 'term) term' option;
-    hole_svg : Svg.rect;
+    hole_rect : Widget.rect;
     mutable hole_parent : 'sorts block option;
   }
 
@@ -62,26 +61,26 @@ and 'sorts hole = Hole : ('sorts, 'term) hole' -> 'sorts hole
 and 'sorts item =
   | Child of 'sorts hole
   | Newline
-  | Svg of Svg.t (** A reference to a "keyword" *)
+  | Widget of Widget.t (** A reference to a "keyword" *)
   | Tab
 
 module Hole = struct
   let create term_of_sort doc =
     { ptr = ref None
     ; term_of_sort
-    ; hole_svg =
-        new Svg.rect
+    ; hole_rect =
+        new Widget.rect
           ~width:18.0 ~height:18.0 ~rx:5.0 ~ry:5.0 ~style:"fill:#a0a0a0" doc
     ; hole_parent = None }
 
   let highlight hole =
-    hole.hole_svg#set_style "fill:#ffffff"
+    hole.hole_rect#set_style "fill:#ffffff"
 
   let highlight_error hole =
-    hole.hole_svg#set_style "fill:#ffa0a0"
+    hole.hole_rect#set_style "fill:#ffa0a0"
 
   let unhighlight hole =
-    hole.hole_svg#set_style "fill:#a0a0a0"
+    hole.hole_rect#set_style "fill:#a0a0a0"
 end
 
 module Block = struct
@@ -98,16 +97,16 @@ module Block = struct
          let x, y = match item with
            | Tab -> x +. 20.0, y
            | Newline -> horiz_padding, y + 1
-           | Svg svg ->
-              svg#set_x x;
-              svg#set_y (Float.of_int y *. col_height);
-              x +. svg#width +. horiz_padding, y
-           | Child (Hole { ptr; hole_svg; _ }) ->
+           | Widget widget ->
+              widget#set_x x;
+              widget#set_y (Float.of_int y *. col_height);
+              x +. widget#width +. horiz_padding, y
+           | Child (Hole { ptr; hole_rect; _ }) ->
               match !ptr with
               | None ->
-                 hole_svg#set_x x;
-                 hole_svg#set_y (Float.of_int y *. col_height);
-                 x +. hole_svg#width +. horiz_padding, y
+                 hole_rect#set_x x;
+                 hole_rect#set_y (Float.of_int y *. col_height);
+                 x +. hole_rect#width +. horiz_padding, y
               | Some term ->
                  term.block.group#set_x x;
                  term.block.group#set_y (Float.of_int y *. col_height);
@@ -122,8 +121,8 @@ module Block = struct
     let (width, height) as dim =
       loop horiz_padding horiz_padding 0 block.items
     in
-    block.rect#set_width width;
-    block.rect#set_height (Float.of_int (height + 1) *. col_height);
+    block.group#set_width width;
+    block.group#set_height (Float.of_int (height + 1) *. col_height);
     block.dim <- Some dim;
     dim
 
@@ -160,7 +159,7 @@ module Block = struct
     Option.iter !(hole.ptr) ~f:(fun term ->
         Option.iter hole.hole_parent ~f:(fun parent ->
             remove_from_group parent term.block.group;
-            append_to_group parent hole.hole_svg
+            append_to_group parent hole.hole_rect
           )
       );
     hole.ptr := None;
@@ -198,8 +197,8 @@ module Block = struct
                     | Some term -> find_hovered_hole term.block x y
                     | None ->
                        if in_box x y
-                            hole.hole_svg#x hole.hole_svg#y
-                            hole.hole_svg#width hole.hole_svg#height
+                            hole.hole_rect#x hole.hole_rect#y
+                            hole.hole_rect#width hole.hole_rect#height
                        then Some h
                        else None
                     end
@@ -212,17 +211,17 @@ module Block = struct
 
   let restrict_bounds block =
     let open Float.O in
-    let svg_width = Svg.length_of_anim block.ctx.svg##.width in
+    let svg_width = Widget.length_of_anim block.ctx.svg##.width in
     if block.group#x < 0.0 then
       block.group#set_x 0.0
-    else if block.group#x +. block.rect#width > svg_width then
-      block.group#set_x (svg_width -. block.rect#width)
+    else if block.group#x +. block.group#width > svg_width then
+      block.group#set_x (svg_width -. block.group#width)
     ;
-    let svg_height = Svg.length_of_anim block.ctx.svg##.height in
+    let svg_height = Widget.length_of_anim block.ctx.svg##.height in
     if block.group#y < 0.0 then
       block.group#set_y 0.0
-    else if block.group#y +. block.rect#height > svg_height then
-      block.group#set_y (svg_height -. block.rect#height)
+    else if block.group#y +. block.group#height > svg_height then
+      block.group#set_y (svg_height -. block.group#height)
 
   let drag term ev x_offset y_offset =
     let block = term.block in
@@ -311,21 +310,19 @@ module Block = struct
   let create ?(x=0.0) ?(y=0.0) sort_of_term doc ctx term items =
     let style = "fill:#ff0000; stroke-width:3; stroke:#ffffff" in
     let block =
-      { group = new Svg.group ~x ~y doc
-      ; rect = new Svg.rect doc ~rx:5.0 ~ry:5.0 ~style
+      { group = new Widget.group ~x ~y ~rx:5.0 ~ry:5.0 ~style doc
       ; items
       ; dim = None
       ; parent = Unattached
       ; ctx
       ; iterator = None } in
     let term = { term; block; sort_of_term } in
-    append_to_group block block.rect;
     List.iter items ~f:(function
-        | Svg svg -> append_to_group block svg
+        | Widget widget -> append_to_group block widget
         | Child (Hole hole) ->
            hole.hole_parent <- Some block;
            begin match !(hole.ptr) with
-           | None -> append_to_group block hole.hole_svg
+           | None -> append_to_group block hole.hole_rect
            | _ -> ()
            end
         | _ -> ()
@@ -345,8 +342,8 @@ module Builder = struct
   let nt hole _doc = Child(Hole hole)
 
   let text str doc =
-    let text_elem = new Svg.text ~style:"fill:#ffffff" doc str in
-    Svg (text_elem :> Svg.t)
+    let text_elem = new Widget.text ~style:"fill:#ffffff" doc str in
+    Widget (text_elem :> Widget.t)
 
   let newline _doc = Newline
 
@@ -357,9 +354,9 @@ end
 
 let create doc svg =
   let palette_rect = Dom_svg.createRect doc in
-  let height : float = Svg.length_of_anim (svg##.height) in
-  Svg.set_width palette_rect 50.0;
-  Svg.set_height palette_rect height;
+  let height : float = Widget.length_of_anim (svg##.height) in
+  Widget.set_width palette_rect 50.0;
+  Widget.set_height palette_rect height;
   let _ = svg##appendChild (palette_rect :> Dom.node Js.t) in
   { palette_rect
   ; svg

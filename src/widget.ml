@@ -38,29 +38,6 @@ let render_transform x y =
   let y = string_of_float y in
   "translate(" ^ x ^ " " ^ y ^ ")"
 
-class group ?(x=0.0) ?(y=0.0) doc = object
-  val mutable x = x
-  val mutable y = y
-  val elem = Dom_svg.createG doc
-
-  initializer
-    set_string_prop elem "transform" (render_transform x y)
-
-  method element = elem
-
-  method x = x
-
-  method set_x x' =
-    x <- x';
-    set_string_prop elem "transform" (render_transform x y)
-
-  method y = y
-
-  method set_y y' =
-    y <- y';
-    set_string_prop elem "transform" (render_transform x y)
-end
-
 class rect
         ?(x=0.0) ?(y=0.0)
         ?(width=0.0) ?(height=0.0)
@@ -99,6 +76,43 @@ class rect
   method set_height = set_height elem
 
   method set_style = set_string_prop elem "style"
+end
+
+class group
+        ?(x=0.0) ?(y=0.0)
+        ?(width=0.0) ?(height=0.0)
+        ?(rx=0.0) ?(ry=0.0)
+        ?style doc = object
+  val mutable x = x
+  val mutable y = y
+  val elem = Dom_svg.createG doc
+  val rect = new rect ~x:0.0 ~y:0.0 ~width ~height ~rx ~ry ?style doc
+
+  initializer
+    set_string_prop elem "transform" (render_transform x y);
+    ignore (elem##appendChild (rect#element :> Dom.node Js.t))
+
+  method element = elem
+
+  method x = x
+
+  method set_x x' =
+    x <- x';
+    set_string_prop elem "transform" (render_transform x y)
+
+  method y = y
+
+  method set_y y' =
+    y <- y';
+    set_string_prop elem "transform" (render_transform x y)
+
+  method width = rect#width
+
+  method set_width = rect#set_width
+
+  method height = rect#height
+
+  method set_height = rect#set_height
 end
 
 class text ?(x=0.0) ?(y=0.0) ?style doc text = object

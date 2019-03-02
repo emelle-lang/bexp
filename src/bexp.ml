@@ -1,3 +1,3 @@
 include Basic
 
-module Svg = Svg
+module Widget = Widget
