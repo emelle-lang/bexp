@@ -2,17 +2,21 @@ open Base
 open Js_of_ocaml
 
 type arith =
-  | Add of (sorts, arith) Bexp.term' option ref
-           * (sorts, arith) Bexp.term' option ref
-  | If of (sorts, pred) Bexp.term' option ref
-          * (sorts, arith) Bexp.term' option ref
-          * (sorts, arith) Bexp.term' option ref
+  | Add of binop
+  | If of if_expr
   | Num of int
 
+and binop =
+  (sorts, arith) Bexp.hole' * (sorts, arith) Bexp.hole'
+
+and if_expr =
+  (sorts, pred) Bexp.hole'
+  * (sorts, arith) Bexp.hole'
+  * (sorts, arith) Bexp.hole'
+
 and pred =
-  | Equals of (sorts, arith) Bexp.term' option ref
-              * (sorts, arith) Bexp.term' option ref
-  | Not of (sorts, pred) Bexp.term' option ref
+  | Equals of binop
+  | Not of (sorts, pred) Bexp.hole'
 
 and sorts =
   | Arith of (sorts, arith) Bexp.term'
@@ -32,42 +36,68 @@ let sort_of_arith a = Arith a
 
 let sort_of_pred p = Pred p
 
-let make_plus ctx =
-  let open Bexp.Builder in
-  let left = Bexp.Hole.create get_arith doc in
-  let right = Bexp.Hole.create get_arith doc in
-  let items = eval doc [nt left; text "+"; nt right] in
-  Bexp.Block.create sort_of_arith doc ctx
-    (Add(left.Bexp.ptr, right.Bexp.ptr)) items
+let left (l, _) = Bexp.Hole l
 
-let make_if ctx =
+let right (_, r) = Bexp.Hole r
+
+let pred (p, _, _) = Bexp.Hole p
+
+let conseq (_, c, _) = Bexp.Hole c
+
+let alt (_, _, a) = Bexp.Hole a
+
+let plus_def =
   let open Bexp.Builder in
-  let pred = Bexp.Hole.create get_pred doc in
-  let conseq = Bexp.Hole.create get_arith doc in
-  let otherwise = Bexp.Hole.create get_arith doc in
+  let items = eval doc [nt left; text "+"; nt right] in
+  { Bexp.Syntax.items
+  ; create =
+      (fun () -> ( Bexp.Hole.create get_arith doc
+                 , Bexp.Hole.create get_arith doc))
+  ; to_term = fun x -> Add x }
+
+let make_plus ctx =
+  Bexp.Builder.run sort_of_arith doc ctx plus_def
+
+let if_def =
+  let open Bexp.Builder in
   let items =
     eval doc
       [text "if"; nt pred; text "then"; newline;
        tab; nt conseq; newline;
        text "else"; newline;
-       tab; nt otherwise
+       tab; nt alt
       ] in
-  Bexp.Block.create sort_of_arith doc ctx
-    (If(pred.Bexp.ptr, conseq.Bexp.ptr, otherwise.Bexp.ptr)) items
+  { Bexp.Syntax.items
+  ; create =
+      (fun () -> ( Bexp.Hole.create get_pred doc
+                 , Bexp.Hole.create get_arith doc
+                 , Bexp.Hole.create get_arith doc ))
+  ; to_term = fun x -> If x }
+
+let make_if ctx =
+  Bexp.Builder.run sort_of_arith doc ctx if_def
+
+let eq_def =
+  let open Bexp.Builder in
+  let items = eval doc [nt left; text " = "; nt right] in
+  { Bexp.Syntax.items
+  ; create =
+      (fun () -> ( Bexp.Hole.create get_arith doc
+                 , Bexp.Hole.create get_arith doc ))
+  ; to_term = fun x -> Equals x }
 
 let make_eq ctx =
+  Bexp.Builder.run sort_of_pred doc ctx eq_def
+
+let not_def =
   let open Bexp.Builder in
-  let lhs = Bexp.Hole.create get_arith doc in
-  let rhs = Bexp.Hole.create get_arith doc in
-  let items = eval doc [nt lhs; text " = "; nt rhs] in
-  Bexp.Block.create sort_of_pred doc ctx
-    (Equals(lhs.Bexp.ptr, rhs.Bexp.ptr)) items
+  let items = eval doc [text "not"; nt (fun x -> Bexp.Hole x)] in
+  { Bexp.Syntax.items
+  ; create = (fun () -> Bexp.Hole.create get_pred doc)
+  ; to_term = fun x -> Not x }
 
 let make_not ctx =
-  let open Bexp.Builder in
-  let p = Bexp.Hole.create get_pred doc in
-  let items = eval doc [text "not"; nt p] in
-  Bexp.Block.create sort_of_pred doc ctx (Not p.Bexp.ptr) items
+  Bexp.Builder.run sort_of_pred doc ctx not_def
 
 let ctx =
   match
@@ -80,6 +110,6 @@ let ctx =
 
 let () =
   Bexp.add_block ctx (make_plus ctx);
+  Bexp.add_block ctx (make_if ctx);
   Bexp.add_block ctx (make_eq ctx);
-  Bexp.add_block ctx (make_not ctx);
-  Bexp.add_block ctx (make_if ctx)
+  Bexp.add_block ctx (make_not ctx)

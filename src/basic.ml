@@ -336,20 +336,58 @@ module Block = struct
     term
 end
 
-module Builder = struct
-  type 'sort t = Dom_svg.document Js.t -> 'sort item
+(** This module contains types for defining the syntax of a block. *)
+module Syntax = struct
+  type ('sorts, 'sym) item =
+    | Child of ('sym -> 'sorts hole)
+    | Newline
+    | Widget of Widget.t * (unit -> Widget.t)
+    | Tab
 
-  let nt hole _doc = Child(Hole hole)
+  (** [('sorts, 'term, 'sym) t]
+
+      ['sorts] - The type of sorts
+      ['term] - The type of the term (e.g. expr, type, kind)
+      ['sym] - The type of the specific term (e.g. app, lam, var)
+    *)
+  type ('sorts, 'term, 'sym) t = {
+      items : ('sorts, 'sym) item list;
+      create : unit -> 'sym;
+      to_term : 'sym -> 'term
+    }
+end
+
+(** This module contains a DSL for building a block syntax and converting it
+    into a block. *)
+module Builder = struct
+  type ('sorts, 'term) t = Dom_svg.document Js.t -> ('sorts, 'term) Syntax.item
+
+  let nt hole_f _doc = Syntax.Child hole_f
 
   let text str doc =
-    let text_elem = new Widget.text ~style:"fill:#ffffff" doc str in
-    Widget (text_elem :> Widget.t)
+    let text_elem () = new Widget.text ~style:"fill:#ffffff" doc str in
+    Syntax.Widget ( (text_elem () :> Widget.t)
+                  , (text_elem :> unit -> Widget.t))
 
-  let newline _doc = Newline
+  let newline _doc = Syntax.Newline
 
-  let tab _doc = Tab
+  let tab _doc = Syntax.Tab
 
+  (** Run the DSL to produce a syntax. *)
   let eval doc ts = List.map ~f:(fun f -> f doc) ts
+
+  (** Run the syntax to produce a fresh block. *)
+  let run sort_of_term doc ctx syntax =
+    let sym = syntax.Syntax.create () in
+    let term = syntax.to_term sym in
+    let items =
+      List.map ~f:(function
+          | Syntax.Child hole_f -> Child (hole_f sym)
+          | Syntax.Newline -> Newline
+          | Syntax.Widget(_, f) -> Widget (f ())
+          | Syntax.Tab -> Tab
+        ) syntax.Syntax.items
+    in Block.create sort_of_term doc ctx term items
 end
 
 let create doc svg =
