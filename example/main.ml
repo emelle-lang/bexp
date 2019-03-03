@@ -7,20 +7,20 @@ type arith =
   | Num of int
 
 and binop =
-  (sorts, arith) Bexp.hole' * (sorts, arith) Bexp.hole'
+  (symbols, arith) Bexp.hole' * (symbols, arith) Bexp.hole'
 
 and if_expr =
-  (sorts, pred) Bexp.hole'
-  * (sorts, arith) Bexp.hole'
-  * (sorts, arith) Bexp.hole'
+  (symbols, pred) Bexp.hole'
+  * (symbols, arith) Bexp.hole'
+  * (symbols, arith) Bexp.hole'
 
 and pred =
   | Equals of binop
-  | Not of (sorts, pred) Bexp.hole'
+  | Not of (symbols, pred) Bexp.hole'
 
-and sorts =
-  | Arith of (sorts, arith) Bexp.term'
-  | Pred of (sorts, pred) Bexp.term'
+and symbols =
+  | Arith of (symbols, arith) Bexp.term'
+  | Pred of (symbols, pred) Bexp.term'
 
 let doc = Dom_svg.document
 
@@ -32,9 +32,9 @@ let get_pred = function
   | Pred a -> Some a
   | _ -> None
 
-let sort_of_arith a = Arith a
+let symbol_of_arith a = Arith a
 
-let sort_of_pred p = Pred p
+let symbol_of_pred p = Pred p
 
 let left (l, _) = Bexp.Hole l
 
@@ -56,7 +56,7 @@ let plus_def =
   ; to_term = fun x -> Add x }
 
 let make_plus ctx =
-  Bexp.Builder.run sort_of_arith doc ctx plus_def
+  Bexp.Builder.run symbol_of_arith doc ctx plus_def
 
 let if_def =
   let open Bexp.Builder in
@@ -75,7 +75,7 @@ let if_def =
   ; to_term = fun x -> If x }
 
 let make_if ctx =
-  Bexp.Builder.run sort_of_arith doc ctx if_def
+  Bexp.Builder.run symbol_of_arith doc ctx if_def
 
 let eq_def =
   let open Bexp.Builder in
@@ -87,7 +87,7 @@ let eq_def =
   ; to_term = fun x -> Equals x }
 
 let make_eq ctx =
-  Bexp.Builder.run sort_of_pred doc ctx eq_def
+  Bexp.Builder.run symbol_of_pred doc ctx eq_def
 
 let not_def =
   let open Bexp.Builder in
@@ -97,7 +97,7 @@ let not_def =
   ; to_term = fun x -> Not x }
 
 let make_not ctx =
-  Bexp.Builder.run sort_of_pred doc ctx not_def
+  Bexp.Builder.run symbol_of_pred doc ctx not_def
 
 let ctx =
   match

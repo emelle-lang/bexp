@@ -1,73 +1,84 @@
 open Core_kernel
 open Js_of_ocaml
 
-(** Throughout the code, the data types are parameterized by the ['sorts]. The
-    ['sorts] type variable represents the set of "sorts" of a language or logic,
-    which is basically the classification of the different symbol classes. In
-    this library, the various terms of the language can have different types,
-    but so we use sorts to be able to use them together. *)
+(** Throughout the code, the data types are parameterized by the ['symbols] type
+    variable. This variable represents the set of {i symbols} in the language.
+    The terminology of "symbol" is taken from the idea of a
+    {{: https://en.wikipedia.org/wiki/Signature_(logic)} signature} from formal
+    logic. A signature describing a logical system defines the set of (constant,
+    function, and predicate) symbols used in it.
 
-type 'sorts ctx = {
+    Note that this library does not make a distinction between constant,
+    function, and predicate symbols. A constant symbol is simply a function
+    symbol with an arity of the unit type, and whether something is a predicate
+    or function symbol is not something that the library is concerned with.
+    (This library is for creating block interfaces, i.e. syntaxes, not
+    semantics!) *)
+
+type 'symbols ctx = {
     palette_rect : Dom_svg.rectElement Js.t;
     svg : Dom_svg.svgElement Js.t;
-    mutable picked_up_block : 'sorts term option;
-    scripts : 'sorts term Doubly_linked.t;
-    mutable drop_candidate : 'sorts hole option;
+    mutable picked_up_block : 'symbols term option;
+    scripts : 'symbols term Doubly_linked.t;
+    mutable drop_candidate : 'symbols hole option;
   }
 
-and 'sorts block = {
+and 'symbols block = {
     group : Widget.group;
-    items : 'sorts item list;
+    items : 'symbols item list;
     mutable dim : (float * int) option;
       (** The cached width and column count. The column is an integer because it
           is counted in discrete intervals! *)
-    mutable parent : 'sorts parent;
-    ctx : 'sorts ctx;
-    mutable iterator : 'sorts term Doubly_linked.Elt.t option
+    mutable parent : 'symbols parent;
+    ctx : 'symbols ctx;
+    mutable iterator : 'symbols term Doubly_linked.Elt.t option
   }
 
-and 'sorts parent =
-  | Hole_parent of 'sorts hole
+and 'symbols parent =
+  | Hole_parent of 'symbols hole
   | Picked_up
-  | Root of 'sorts term Doubly_linked.Elt.t
+  | Root of 'symbols term Doubly_linked.Elt.t
   | Unattached
 
-(** [term'] is parameterized by both ['sorts] and ['term] types. This is because
-    the [term'] type needs to store the AST ['term] that it wraps. [term'] also
-    contains a function that packs the [term'] into a sort. *)
+(** [term'] is parameterized by both the set of ['symbols] in the language and
+    the ['sort] of the term that it wraps. The ['sort] type parameter enables
+    the library to work with
+    {{: https://en.wikipedia.org/wiki/Many-sorted_logic} many-sorted logics} in
+    a type-safe manner. *)
 
-and ('sorts, 'term) term' = {
-    block : 'sorts block;
-    term : 'term;
-    sort_of_term : ('sorts, 'term) term' -> 'sorts;
+and ('symbols, 'sort) term' = {
+    block : 'symbols block;
+    term : 'sort;
+    symbol_of_term : ('symbols, 'sort) term' -> 'symbols;
+      (** A conversion function that "packs" the wrapped term into the symbol
+          type *)
   }
 
-(** In order for terms of different sorts to be used together, the term type
-    needs to be abstracted away in an existential. *)
-and 'sorts term = Term : ('sorts, 'term) term' -> 'sorts term
+(** In order for terms of different sorts to be used together, the sort needs to
+    abstracted away in an existential type variable. *)
+and 'symbols term = Term : ('symbols, 'sort) term' -> 'symbols term
 
-and ('sorts, 'term) hole' = {
-    ptr : ('sorts, 'term) term' option ref;
-    term_of_sort : 'sorts -> ('sorts, 'term) term' option;
+and ('symbols, 'sort) hole' = {
+    ptr : ('symbols, 'sort) term' option ref;
+    term_of_symbol : 'symbols -> ('symbols, 'sort) term' option;
+      (** A conversion function that "unpacks" the symbol into a term belongin
+          to a specific sort. *)
     hole_rect : Widget.rect;
-    mutable hole_parent : 'sorts block option;
+    mutable hole_parent : 'symbols block option;
   }
 
-(** A hole is a GADT with the term type as an existential. Therefore, holes of
-    differently sorted terms can be used together while retaining type safety.
- *)
-and 'sorts hole = Hole : ('sorts, 'term) hole' -> 'sorts hole
+and 'symbols hole = Hole : ('symbols, 'sort) hole' -> 'symbols hole
 
-and 'sorts item =
-  | Child of 'sorts hole
+and 'symbols item =
+  | Child of 'symbols hole
   | Newline
   | Widget of Widget.t (** A reference to a "keyword" *)
   | Tab
 
 module Hole = struct
-  let create term_of_sort doc =
+  let create term_of_symbol doc =
     { ptr = ref None
-    ; term_of_sort
+    ; term_of_symbol
     ; hole_rect =
         new Widget.rect
           ~width:18.0 ~height:18.0 ~rx:5.0 ~ry:5.0 ~style:"fill:#a0a0a0" doc
@@ -244,7 +255,7 @@ module Block = struct
     | None ->
        block.ctx.drop_candidate <- None
     | Some ((Hole hole) as h) ->
-       match hole.term_of_sort (term.sort_of_term term) with
+       match hole.term_of_symbol (term.symbol_of_term term) with
        | None ->
           block.ctx.drop_candidate <- Some h;
           Hole.highlight_error hole
@@ -260,7 +271,7 @@ module Block = struct
     match term.block.ctx.drop_candidate with
     | None -> f ()
     | Some (Hole hole) ->
-       match hole.term_of_sort (term.sort_of_term term) with
+       match hole.term_of_symbol (term.symbol_of_term term) with
        | None ->
           f ();
           Hole.unhighlight hole
@@ -307,7 +318,7 @@ module Block = struct
     block.ctx.picked_up_block <- Some t;
     move_to_front block
 
-  let create ?(x=0.0) ?(y=0.0) sort_of_term doc ctx term items =
+  let create ?(x=0.0) ?(y=0.0) symbol_of_term doc ctx term items =
     let style = "fill:#ff0000; stroke-width:3; stroke:#ffffff" in
     let block =
       { group = new Widget.group ~x ~y ~rx:5.0 ~ry:5.0 ~style doc
@@ -316,7 +327,7 @@ module Block = struct
       ; parent = Unattached
       ; ctx
       ; iterator = None } in
-    let term = { term; block; sort_of_term } in
+    let term = { term; block; symbol_of_term } in
     List.iter items ~f:(function
         | Widget widget -> append_to_group block widget
         | Child (Hole hole) ->
@@ -338,29 +349,30 @@ end
 
 (** This module contains types for defining the syntax of a block. *)
 module Syntax = struct
-  type ('sorts, 'sym) item =
-    | Child of ('sym -> 'sorts hole)
+  type ('symbols, 'arity) item =
+    | Child of ('arity -> 'symbols hole)
     | Newline
     | Widget of Widget.t * (unit -> Widget.t)
     | Tab
 
-  (** [('sorts, 'term, 'sym) t]
+  (** [('symbols, 'sort, 'arity) t]
 
-      ['sorts] - The type of sorts
-      ['term] - The type of the term (e.g. expr, type, kind)
-      ['sym] - The type of the specific term (e.g. app, lam, var)
+      ['symbols] - The set of symbols in the language
+      ['sort] - The set of terms (e.g. expr, type, kind)
+      ['arity] - The type of the arity (e.g. type * type, term * term)
     *)
-  type ('sorts, 'term, 'sym) t = {
-      items : ('sorts, 'sym) item list;
-      create : unit -> 'sym;
-      to_term : 'sym -> 'term
+  type ('symbols, 'sort, 'arity) t = {
+      items : ('symbols, 'arity) item list;
+      create : unit -> 'arity;
+      to_term : 'arity -> 'sort
     }
 end
 
 (** This module contains a DSL for building a block syntax and converting it
     into a block. *)
 module Builder = struct
-  type ('sorts, 'term) t = Dom_svg.document Js.t -> ('sorts, 'term) Syntax.item
+  type ('symbols, 'sort) t =
+    Dom_svg.document Js.t -> ('symbols, 'sort) Syntax.item
 
   let nt hole_f _doc = Syntax.Child hole_f
 
@@ -377,7 +389,7 @@ module Builder = struct
   let eval doc ts = List.map ~f:(fun f -> f doc) ts
 
   (** Run the syntax to produce a fresh block. *)
-  let run sort_of_term doc ctx syntax =
+  let run symbol_of_term doc ctx syntax =
     let sym = syntax.Syntax.create () in
     let term = syntax.to_term sym in
     let items =
@@ -387,7 +399,7 @@ module Builder = struct
           | Syntax.Widget(_, f) -> Widget (f ())
           | Syntax.Tab -> Tab
         ) syntax.Syntax.items
-    in Block.create sort_of_term doc ctx term items
+    in Block.create symbol_of_term doc ctx term items
 end
 
 let create doc svg =
