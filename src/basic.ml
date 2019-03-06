@@ -76,7 +76,8 @@ and 'symbols item =
   | Tab
 
 module Hole = struct
-  let create term_of_symbol doc =
+  let create term_of_symbol =
+    let doc = Dom_svg.document in
     { ptr = ref None
     ; term_of_symbol
     ; hole_rect =
@@ -318,7 +319,8 @@ module Block = struct
     block.ctx.picked_up_block <- Some t;
     move_to_front block
 
-  let create ?(x=0.0) ?(y=0.0) symbol_of_term doc ctx term items =
+  let create ?(x=0.0) ?(y=0.0) symbol_of_term ctx term items =
+    let doc = Dom_svg.document in
     let style = "fill:#ff0000; stroke-width:3; stroke:#ffffff" in
     let block =
       { group = new Widget.group ~x ~y ~rx:5.0 ~ry:5.0 ~style doc
@@ -371,25 +373,20 @@ end
 (** This module contains a DSL for building a block syntax and converting it
     into a block. *)
 module Builder = struct
-  type ('symbols, 'sort) t =
-    Dom_svg.document Js.t -> ('symbols, 'sort) Syntax.item
+  let nt hole_f = Syntax.Child hole_f
 
-  let nt hole_f _doc = Syntax.Child hole_f
-
-  let text str doc =
+  let text str =
+    let doc = Dom_svg.document in
     let text_elem () = new Widget.text ~style:"fill:#ffffff" doc str in
     Syntax.Widget ( (text_elem () :> Widget.t)
                   , (text_elem :> unit -> Widget.t))
 
-  let newline _doc = Syntax.Newline
+  let newline = Syntax.Newline
 
-  let tab _doc = Syntax.Tab
-
-  (** Run the DSL to produce a syntax. *)
-  let eval doc ts = List.map ~f:(fun f -> f doc) ts
+  let tab = Syntax.Tab
 
   (** Run the syntax to produce a fresh block. *)
-  let run symbol_of_term doc ctx syntax =
+  let run symbol_of_term ctx syntax =
     let sym = syntax.Syntax.create () in
     let term = syntax.to_term sym in
     let items =
@@ -399,12 +396,13 @@ module Builder = struct
           | Syntax.Widget(_, f) -> Widget (f ())
           | Syntax.Tab -> Tab
         ) syntax.Syntax.items
-    in Block.create symbol_of_term doc ctx term items
+    in Block.create symbol_of_term ctx term items
 end
 
-let create doc svg =
+let create svg =
+  let doc = Dom_svg.document in
   let palette_rect = Dom_svg.createRect doc in
-  let height : float = Widget.length_of_anim (svg##.height) in
+  let height = Widget.length_of_anim (svg##.height) in
   Widget.set_width palette_rect 50.0;
   Widget.set_height palette_rect height;
   let _ = svg##appendChild (palette_rect :> Dom.node Js.t) in
