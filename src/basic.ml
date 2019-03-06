@@ -59,7 +59,7 @@ and ('symbols, 'sort) term' = {
 and 'symbols term = Term : ('symbols, 'sort) term' -> 'symbols term
 
 and ('symbols, 'sort) hole' = {
-    ptr : ('symbols, 'sort) term' option ref;
+    mutable hole_term : ('symbols, 'sort) term' option;
     term_of_symbol : 'symbols -> ('symbols, 'sort) term' option;
       (** A conversion function that "unpacks" the symbol into a term belongin
           to a specific sort. *)
@@ -78,7 +78,7 @@ and 'symbols item =
 module Hole = struct
   let create term_of_symbol =
     let doc = Dom_svg.document in
-    { ptr = ref None
+    { hole_term = None
     ; term_of_symbol
     ; hole_rect =
         new Widget.rect
@@ -113,8 +113,8 @@ module Block = struct
               widget#set_x x;
               widget#set_y (Float.of_int y *. col_height);
               x +. widget#width +. horiz_padding, y
-           | Child (Hole { ptr; hole_rect; _ }) ->
-              match !ptr with
+           | Child (Hole { hole_term; hole_rect; _ }) ->
+              match hole_term with
               | None ->
                  hole_rect#set_x x;
                  hole_rect#set_y (Float.of_int y *. col_height);
@@ -168,13 +168,13 @@ module Block = struct
     ignore (block.group#element##removeChild (child#element :> Dom.node Js.t))
 
   let clear hole =
-    Option.iter !(hole.ptr) ~f:(fun term ->
+    Option.iter hole.hole_term ~f:(fun term ->
         Option.iter hole.hole_parent ~f:(fun parent ->
             remove_from_group parent term.block.group;
             append_to_group parent hole.hole_rect
           )
       );
-    hole.ptr := None;
+    hole.hole_term <- None;
     match hole.hole_parent with
     | Some parent -> render_block_and_parents parent
     | None -> (0.0, 0.0)
@@ -205,7 +205,7 @@ module Block = struct
               | None ->
                  begin match next with
                  | Child ((Hole hole) as h) ->
-                    begin match !(hole.ptr) with
+                    begin match hole.hole_term with
                     | Some term -> find_hovered_hole term.block x y
                     | None ->
                        if in_box x y
@@ -277,7 +277,7 @@ module Block = struct
           f ();
           Hole.unhighlight hole
        | Some term ->
-          hole.ptr := Some term;
+          hole.hole_term <- Some term;
           term.block.parent <- Hole_parent (Hole hole);
           Option.iter hole.hole_parent ~f:(fun parent ->
               append_to_group parent term.block.group;
@@ -334,7 +334,7 @@ module Block = struct
         | Widget widget -> append_to_group block widget
         | Child (Hole hole) ->
            hole.hole_parent <- Some block;
-           begin match !(hole.ptr) with
+           begin match hole.hole_term with
            | None -> append_to_group block hole.hole_rect
            | _ -> ()
            end
