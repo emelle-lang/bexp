@@ -16,8 +16,8 @@ open Js_of_ocaml
     semantics!) *)
 
 type 'symbols ctx = {
-    palette_rect : Dom_svg.rectElement Js.t;
-    svg : Dom_svg.svgElement Js.t;
+    root_layer : Widget.group;
+    script_container : Widget.group;
     mutable picked_up_block : 'symbols term option;
     scripts : 'symbols term Doubly_linked.t;
     mutable drop_candidate : 'symbols hole option;
@@ -75,6 +75,38 @@ and 'symbols item =
   | Widget of Widget.t (** A reference to a "keyword" *)
   | Tab
 
+and ('symbols, 'sort) palette = {
+    palette_group : Widget.group;
+    syntactic_forms : ('symbols, 'sort) syntax list;
+  }
+
+and placeholder = {
+    placeholder_group : Widget.group;
+    text : Widget.text;
+  }
+
+and ('symbols, 'arity) syn_item =
+  | Syn_Child of placeholder * ('arity -> 'symbols hole)
+  | Syn_Newline
+  | Syn_Widget of Widget.t * (unit -> Widget.t)
+  | Syn_Tab
+
+(** [('symbols, 'sort, 'arity) t]
+
+    ['symbols] - The set of symbols in the language
+    ['sort] - The set of terms (e.g. expr, type, kind)
+    ['arity] - The type of the arity (e.g. type * type, term * term)
+ *)
+and ('symbols, 'sort, 'arity) syntax' = {
+    syn_items : ('symbols, 'arity) syn_item list;
+    syn_create : unit -> 'arity;
+    term_of_arity : 'arity -> 'sort;
+    syn_group : Widget.group
+  }
+
+and ('symbols, 'sort) syntax =
+  Syntax : ('symbols, 'sort, _) syntax' -> ('symbols, 'sort) syntax
+
 module Hole = struct
   let create term_of_symbol =
     let doc = Dom_svg.document in
@@ -130,11 +162,11 @@ module Block = struct
          let max_width = Float.max max_width x in
          loop max_width x y items
     in
-    let (width, height) as dim =
+    let (width, newline_count) as dim =
       loop horiz_padding horiz_padding 0 block.items
     in
     block.group#set_width width;
-    block.group#set_height (Float.of_int (height + 1) *. col_height);
+    block.group#set_height (Float.of_int (newline_count + 1) *. col_height);
     block.dim <- Some dim;
     dim
 
@@ -221,15 +253,15 @@ module Block = struct
         else None
       )
 
-  let restrict_bounds block =
+  let check_bounds block =
     let open Float.O in
-    let svg_width = Widget.length_of_anim block.ctx.svg##.width in
+    let svg_width = block.ctx.script_container#width in
     if block.group#x < 0.0 then
       block.group#set_x 0.0
     else if block.group#x +. block.group#width > svg_width then
       block.group#set_x (svg_width -. block.group#width)
     ;
-    let svg_height = Widget.length_of_anim block.ctx.svg##.height in
+    let svg_height = block.ctx.script_container#height in
     if block.group#y < 0.0 then
       block.group#set_y 0.0
     else if block.group#y +. block.group#height > svg_height then
@@ -241,7 +273,7 @@ module Block = struct
     let y = (Float.of_int ev##.clientY -. y_offset) in
     block.group#set_x x;
     block.group#set_y y;
-    restrict_bounds block;
+    check_bounds block;
     Option.iter block.ctx.drop_candidate ~f:(fun (Hole hole) ->
         Hole.unhighlight hole
       );
@@ -265,11 +297,14 @@ module Block = struct
           Hole.highlight hole
 
   let drop ((Term term) as t) =
+    let block = term.block in
     let f () =
-      term.block.parent <-
-        Root (Doubly_linked.insert_first term.block.ctx.scripts t);
+      block.parent <- Root (Doubly_linked.insert_first block.ctx.scripts t);
+      ignore
+        (block.ctx.script_container#element##appendChild
+           (block.group#element :> Dom.node Js.t))
     in
-    match term.block.ctx.drop_candidate with
+    match block.ctx.drop_candidate with
     | None -> f ()
     | Some (Hole hole) ->
        match hole.term_of_symbol (term.symbol_of_term term) with
@@ -295,6 +330,9 @@ module Block = struct
            ignore (render_block_and_parents parent)
          )
     | Root iterator ->
+       ignore
+         (block.ctx.script_container#element##removeChild
+            (block.group#element :> Dom.node Js.t));
        Doubly_linked.remove block.ctx.scripts iterator
     | _ -> ()
     end;
@@ -315,13 +353,16 @@ module Block = struct
           Js._true
         );
     block.parent <- Picked_up;
-    ignore (block.ctx.svg##appendChild (block.group#element :> Dom.node Js.t));
+    ignore
+      (block.ctx.root_layer#element##appendChild
+         (block.group#element :> Dom.node Js.t));
     block.ctx.picked_up_block <- Some t;
     move_to_front block
 
+  let style = "fill:#ff0000; stroke-width:3; stroke:#ffffff"
+
   let create ?(x=0.0) ?(y=0.0) symbol_of_term ctx term items =
     let doc = Dom_svg.document in
-    let style = "fill:#ff0000; stroke-width:3; stroke:#ffffff" in
     let block =
       { group = new Widget.group ~x ~y ~rx:5.0 ~ry:5.0 ~style doc
       ; items
@@ -348,74 +389,3 @@ module Block = struct
         );
     term
 end
-
-(** This module contains types for defining the syntax of a block. *)
-module Syntax = struct
-  type ('symbols, 'arity) item =
-    | Child of ('arity -> 'symbols hole)
-    | Newline
-    | Widget of Widget.t * (unit -> Widget.t)
-    | Tab
-
-  (** [('symbols, 'sort, 'arity) t]
-
-      ['symbols] - The set of symbols in the language
-      ['sort] - The set of terms (e.g. expr, type, kind)
-      ['arity] - The type of the arity (e.g. type * type, term * term)
-    *)
-  type ('symbols, 'sort, 'arity) t = {
-      items : ('symbols, 'arity) item list;
-      create : unit -> 'arity;
-      to_term : 'arity -> 'sort
-    }
-end
-
-(** This module contains a DSL for building a block syntax and converting it
-    into a block. *)
-module Builder = struct
-  let nt hole_f = Syntax.Child hole_f
-
-  let text str =
-    let doc = Dom_svg.document in
-    let text_elem () = new Widget.text ~style:"fill:#ffffff" doc str in
-    Syntax.Widget ( (text_elem () :> Widget.t)
-                  , (text_elem :> unit -> Widget.t))
-
-  let newline = Syntax.Newline
-
-  let tab = Syntax.Tab
-
-  (** Run the syntax to produce a fresh block. *)
-  let run symbol_of_term ctx syntax =
-    let sym = syntax.Syntax.create () in
-    let term = syntax.to_term sym in
-    let items =
-      List.map ~f:(function
-          | Syntax.Child hole_f -> Child (hole_f sym)
-          | Syntax.Newline -> Newline
-          | Syntax.Widget(_, f) -> Widget (f ())
-          | Syntax.Tab -> Tab
-        ) syntax.Syntax.items
-    in Block.create symbol_of_term ctx term items
-end
-
-let create svg =
-  let doc = Dom_svg.document in
-  let palette_rect = Dom_svg.createRect doc in
-  let height = Widget.length_of_anim (svg##.height) in
-  Widget.set_width palette_rect 50.0;
-  Widget.set_height palette_rect height;
-  let _ = svg##appendChild (palette_rect :> Dom.node Js.t) in
-  { palette_rect
-  ; svg
-  ; picked_up_block = None
-  ; scripts = Doubly_linked.create ()
-  ; drop_candidate = None }
-
-let add_block ctx term =
-  term.block.parent <-
-    Root (Doubly_linked.insert_first ctx.scripts (Term term));
-  ignore (ctx.svg##appendChild (term.block.group#element :> Dom.node Js.t));
-  (* Render the block upon entry into DOM rather than construction so that
-     text.getComputedTextLength() works correctly *)
-  ignore (Block.render_block_and_children term.block)

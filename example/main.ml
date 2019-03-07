@@ -46,60 +46,78 @@ let conseq (_, c, _) = Bexp.Hole c
 
 let alt (_, _, a) = Bexp.Hole a
 
-let plus_def =
-  let open Bexp.Builder in
-  { Bexp.Syntax.items = [nt left; text "+"; nt right]
-  ; create =
-      (fun () -> ( Bexp.Hole.create get_arith
-                 , Bexp.Hole.create get_arith ))
-  ; to_term = fun x -> Add x }
-
-let make_plus ctx = Bexp.Builder.run symbol_of_arith ctx plus_def
-
-let if_def =
-  let open Bexp.Builder in
-  { Bexp.Syntax.items =
-      [text "if"; nt pred; text "then"; newline;
-       tab; nt conseq; newline;
-       text "else"; newline;
-       tab; nt alt]
-  ; create =
-      (fun () -> ( Bexp.Hole.create get_pred
-                 , Bexp.Hole.create get_arith
-                 , Bexp.Hole.create get_arith ))
-  ; to_term = fun x -> If x }
-
-let make_if ctx = Bexp.Builder.run symbol_of_arith ctx if_def
-
-let eq_def =
-  let open Bexp.Builder in
-  { Bexp.Syntax.items = [nt left; text " = "; nt right]
-  ; create =
-      (fun () -> ( Bexp.Hole.create get_arith
-                 , Bexp.Hole.create get_arith ))
-  ; to_term = fun x -> Equals x }
-
-let make_eq ctx = Bexp.Builder.run symbol_of_pred ctx eq_def
-
-let not_def =
-  let open Bexp.Builder in
-  { Bexp.Syntax.items = [text "not"; nt (fun x -> Bexp.Hole x)]
-  ; create = (fun () -> Bexp.Hole.create get_pred)
-  ; to_term = fun x -> Not x }
-
-let make_not ctx = Bexp.Builder.run symbol_of_pred ctx not_def
-
-let ctx =
+let svg =
   match
     Dom_svg.getElementById "workspace"
     |> Dom_svg.CoerceTo.svg
     |> Js.Opt.to_option
   with
   | None -> assert false
-  | Some svg -> Bexp.create svg
+  | Some svg -> svg
+
+let width = Bexp.Widget.length_of_anim svg##.width
+
+let height = Bexp.Widget.length_of_anim svg##.height
+
+let ctx = Bexp.Workspace.create ~x:0.0 ~y:0.0 ~width ~height ()
+
+let plus_def =
+  let open Bexp.Syntax in
+  create [nt left; text "+"; nt right]
+    ~create:(fun () -> ( Bexp.Hole.create get_arith
+                       , Bexp.Hole.create get_arith ))
+    ~to_term:(fun args -> Add args)
+    ~symbol_of_term:symbol_of_arith
+    ctx
+
+let make_plus ctx = Bexp.Syntax.run symbol_of_arith ctx plus_def
+
+let if_def =
+  let open Bexp.Syntax in
+  create
+    [text "if"; nt pred; text "then"; newline;
+     tab; nt conseq; newline;
+     text "else"; newline;
+     tab; nt alt]
+    ~create:(fun () -> ( Bexp.Hole.create get_pred
+                       , Bexp.Hole.create get_arith
+                       , Bexp.Hole.create get_arith ))
+    ~to_term:(fun args -> If args)
+    ~symbol_of_term:symbol_of_arith
+    ctx
+
+let make_if ctx = Bexp.Syntax.run symbol_of_arith ctx if_def
+
+let eq_def =
+  let open Bexp.Syntax in
+  create [nt left; text " = "; nt right]
+    ~create:(fun () -> ( Bexp.Hole.create get_arith
+                       , Bexp.Hole.create get_arith ))
+    ~to_term:(fun x -> Equals x)
+    ~symbol_of_term:symbol_of_pred
+    ctx
+
+let make_eq ctx = Bexp.Syntax.run symbol_of_pred ctx eq_def
+
+let not_def =
+  let open Bexp.Syntax in
+  create [text "not"; nt (fun x -> Bexp.Hole x)]
+    ~create:(fun () -> Bexp.Hole.create get_pred)
+    ~to_term:(fun args -> Not args)
+    ~symbol_of_term:symbol_of_pred
+    ctx
+
+let make_not ctx = Bexp.Syntax.run symbol_of_pred ctx not_def
+
+let palette =
+  Bexp.Palette.create ~width:150.0 ~height
+    [ Bexp.Syntax eq_def
+    ; Bexp.Syntax not_def ]
 
 let () =
-  Bexp.add_block ctx (make_plus ctx);
-  Bexp.add_block ctx (make_if ctx);
-  Bexp.add_block ctx (make_eq ctx);
-  Bexp.add_block ctx (make_not ctx)
+  Bexp.Workspace.add_block ctx (make_plus ctx);
+  Bexp.Workspace.add_block ctx (make_if ctx);
+  Bexp.Workspace.add_block ctx (make_eq ctx);
+  Bexp.Workspace.add_block ctx (make_not ctx);
+  ignore (svg##appendChild (ctx.Bexp.root_layer#element :> Dom.node Js.t));
+  Bexp.Workspace.render ctx
