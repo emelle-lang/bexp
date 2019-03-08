@@ -19,12 +19,10 @@ open Core_kernel
 
 type 'symbols ctx = {
     root_layer : Widget.group;
-    script_container : Widget.group;
     mutable picked_up_block : 'symbols term option;
     scripts : 'symbols term Doubly_linked.t;
     mutable drop_candidate : 'symbols hole option;
     toolbox : 'symbols toolbox;
-    offset : float; (* Horizontal offset between toolbox and script area *)
   }
 
 and 'symbols block = {

@@ -71,7 +71,8 @@ let plus_def =
     ~symbol_of_term:symbol_of_arith
     ctx
 
-let make_plus ctx = Bexp.Syntax.run symbol_of_arith ctx plus_def
+let make_plus ?x ?y ctx =
+  Bexp.Syntax.run ?x ?y symbol_of_arith ctx plus_def
 
 let if_def =
   let open Bexp.Syntax in
@@ -87,7 +88,8 @@ let if_def =
     ~symbol_of_term:symbol_of_arith
     ctx
 
-let make_if ctx = Bexp.Syntax.run symbol_of_arith ctx if_def
+let make_if ?x ?y ctx =
+  Bexp.Syntax.run ?x ?y symbol_of_arith ctx if_def
 
 let eq_def =
   let open Bexp.Syntax in
@@ -98,7 +100,8 @@ let eq_def =
     ~symbol_of_term:symbol_of_pred
     ctx
 
-let make_eq ctx = Bexp.Syntax.run symbol_of_pred ctx eq_def
+let make_eq ?x ?y ctx =
+  Bexp.Syntax.run ?x ?y symbol_of_pred ctx eq_def
 
 let not_def =
   let open Bexp.Syntax in
@@ -108,7 +111,8 @@ let not_def =
     ~symbol_of_term:symbol_of_pred
     ctx
 
-let make_not ctx = Bexp.Syntax.run symbol_of_pred ctx not_def
+let make_not ?x ?y ctx =
+  Bexp.Syntax.run ?x ?y symbol_of_pred ctx not_def
 
 let palette =
   Bexp.Toolbox.create_palette ctx.Bexp.toolbox
@@ -118,9 +122,9 @@ let () =
   Bexp.Toolbox.set_palette ctx.Bexp.toolbox palette
 
 let () =
-  Bexp.Workspace.add_block ctx (make_plus ctx);
-  Bexp.Workspace.add_block ctx (make_if ctx);
-  Bexp.Workspace.add_block ctx (make_eq ctx);
-  Bexp.Workspace.add_block ctx (make_not ctx);
+  Bexp.Workspace.add_block ctx (make_plus ~x:200.0 ~y:0.0 ctx);
+  Bexp.Workspace.add_block ctx (make_if ~x:190.0 ~y:5.0 ctx);
+  Bexp.Workspace.add_block ctx (make_eq ~x:180.0 ~y: 0.0 ctx);
+  Bexp.Workspace.add_block ctx (make_not ~x:160.0 ~y:6.0 ctx);
   ignore (svg##appendChild (ctx.Bexp.root_layer#element :> Dom.node Js.t));
   Bexp.Workspace.render ctx

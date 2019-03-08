@@ -7,29 +7,19 @@ let create ?(x=0.0) ?y ~width ~height =
   let style = "fill:grey" in
   let root_layer = new Widget.group ~x ?y ~width ~height ~style doc in
   let toolbox = Toolbox.create ~x ?y ~width:150.0 ~height in
-  let offset = toolbox.toolbox_group#width in
   ignore (root_layer#element##appendChild
             (toolbox.toolbox_group#element :> Dom.node Js.t));
-  let script_container =
-    new Widget.group
-      ~x:(x +. offset) ?y
-      ~width:(width -. offset) ~height ~style doc in
-  ignore
-    (root_layer#element##appendChild
-       (script_container#element :> Dom.node Js.t));
   { root_layer
-  ; script_container
   ; picked_up_block = None
   ; scripts = Doubly_linked.create ()
   ; drop_candidate = None
-  ; toolbox
-  ; offset }
+  ; toolbox }
 
 let add_block ctx term =
   term.block.parent <-
     Root (Doubly_linked.insert_first ctx.scripts (Term term));
   ignore
-    (ctx.script_container#element##appendChild
+    (ctx.root_layer#element##appendChild
        (term.block.group#element :> Dom.node Js.t))
 
 let render ctx =

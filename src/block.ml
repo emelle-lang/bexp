@@ -129,13 +129,13 @@ let rec find_hovered_hole block x y =
 
 let check_bounds block =
   let open Float.O in
-  let svg_width = block.ctx.script_container#width in
+  let svg_width = block.ctx.root_layer#width in
   if block.group#x < 0.0 then
     block.group#set_x 0.0
   else if block.group#x +. block.group#width > svg_width then
     block.group#set_x (svg_width -. block.group#width)
   ;
-  let svg_height = block.ctx.script_container#height in
+  let svg_height = block.ctx.root_layer#height in
   if block.group#y < 0.0 then
     block.group#set_y 0.0
   else if block.group#y +. block.group#height > svg_height then
@@ -155,7 +155,7 @@ let drag term ev x_offset y_offset =
     Doubly_linked.fold block.ctx.scripts ~init:None
       ~f:(fun acc (Term t) ->
         match acc with
-        | None -> find_hovered_hole t.block (x -. block.ctx.offset) y
+        | None -> find_hovered_hole t.block x y
         | some -> some
       ) in
   match hole with
@@ -172,17 +172,13 @@ let drag term ev x_offset y_offset =
 
 let drop ((Term term) as t) =
   let block = term.block in
-  if block.group#x < block.ctx.offset then (
+  if block.group#x < block.ctx.toolbox.toolbox_group#width then (
     (* Block is hovering above toolbox, discard *)
     ignore (block.ctx.root_layer#element##removeChild
               (block.group#element :> Dom.node Js.t))
   ) else (
-    block.group#set_x (block.group#x -. block.ctx.offset);
     let f () =
-      block.parent <- Root (Doubly_linked.insert_first block.ctx.scripts t);
-      ignore
-        (block.ctx.script_container#element##appendChild
-           (block.group#element :> Dom.node Js.t))
+      block.parent <- Root (Doubly_linked.insert_first block.ctx.scripts t)
     in
     match block.ctx.drop_candidate with
     | None -> f ()
@@ -227,7 +223,6 @@ let begin_drag ((Term term) as t) ev =
 
 let pick_up ((Term term) as t) ev =
   let block = term.block in
-  block.group#set_x (block.group#x +. block.ctx.offset);
   begin match block.parent with
   | Hole_parent (Hole hole) ->
      let (x, y) = clear hole in
@@ -237,9 +232,6 @@ let pick_up ((Term term) as t) ev =
          ignore (render_block_and_parents parent)
        )
   | Root iterator ->
-     ignore
-       (block.ctx.script_container#element##removeChild
-          (block.group#element :> Dom.node Js.t));
      Doubly_linked.remove block.ctx.scripts iterator
   | _ -> ()
   end;
