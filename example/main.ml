@@ -1,4 +1,4 @@
-open Base
+open Core_kernel
 open Js_of_ocaml
 
 type arith =
@@ -59,11 +59,12 @@ let width = Bexp.Widget.length_of_anim svg##.width
 
 let height = Bexp.Widget.length_of_anim svg##.height
 
-let ctx = Bexp.Workspace.create ~x:0.0 ~y:0.0 ~width ~height ()
+let ctx =
+  Bexp.Workspace.create ~x:0.0 ~y:0.0 ~width ~height
 
 let plus_def =
   let open Bexp.Syntax in
-  create [nt left; text "+"; nt right]
+  Bexp.Workspace.create_syntax [nt left; text "+"; nt right]
     ~create:(fun () -> ( Bexp.Hole.create get_arith
                        , Bexp.Hole.create get_arith ))
     ~to_term:(fun args -> Add args)
@@ -74,7 +75,7 @@ let make_plus ctx = Bexp.Syntax.run symbol_of_arith ctx plus_def
 
 let if_def =
   let open Bexp.Syntax in
-  create
+  Bexp.Workspace.create_syntax
     [text "if"; nt pred; text "then"; newline;
      tab; nt conseq; newline;
      text "else"; newline;
@@ -90,7 +91,7 @@ let make_if ctx = Bexp.Syntax.run symbol_of_arith ctx if_def
 
 let eq_def =
   let open Bexp.Syntax in
-  create [nt left; text " = "; nt right]
+  Bexp.Workspace.create_syntax [nt left; text " = "; nt right]
     ~create:(fun () -> ( Bexp.Hole.create get_arith
                        , Bexp.Hole.create get_arith ))
     ~to_term:(fun x -> Equals x)
@@ -101,7 +102,7 @@ let make_eq ctx = Bexp.Syntax.run symbol_of_pred ctx eq_def
 
 let not_def =
   let open Bexp.Syntax in
-  create [text "not"; nt (fun x -> Bexp.Hole x)]
+  Bexp.Workspace.create_syntax [text "not"; nt (fun x -> Bexp.Hole x)]
     ~create:(fun () -> Bexp.Hole.create get_pred)
     ~to_term:(fun args -> Not args)
     ~symbol_of_term:symbol_of_pred
@@ -110,9 +111,11 @@ let not_def =
 let make_not ctx = Bexp.Syntax.run symbol_of_pred ctx not_def
 
 let palette =
-  Bexp.Palette.create ~width:150.0 ~height
-    [ Bexp.Syntax eq_def
-    ; Bexp.Syntax not_def ]
+  Bexp.Toolbox.create_palette ctx.Bexp.toolbox
+    [ Bexp.Syntax eq_def; Bexp.Syntax not_def ]
+
+let () =
+  Bexp.Toolbox.set_palette ctx.Bexp.toolbox palette
 
 let () =
   Bexp.Workspace.add_block ctx (make_plus ctx);

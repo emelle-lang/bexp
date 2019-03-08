@@ -3,7 +3,7 @@
 
 open Base
 open Js_of_ocaml
-open Basic
+open Types
 
 module Placeholder = struct
   let create str =
@@ -39,12 +39,12 @@ let run symbol_of_term ?x ?y ctx syntax =
   let term = syntax.term_of_arity sym in
   let items =
     List.map ~f:(function
-        | Syn_Child(_, hole_f) -> Basic.Child (hole_f sym)
-        | Syn_Newline -> Basic.Newline
-        | Syn_Widget(_, f) -> Basic.Widget (f ())
-        | Syn_Tab -> Basic.Tab
+        | Syn_Child(_, hole_f) -> Child (hole_f sym)
+        | Syn_Newline -> Newline
+        | Syn_Widget(_, f) -> Widget (f ())
+        | Syn_Tab -> Tab
       ) syntax.syn_items
-  in Basic.Block.create ?x ?y symbol_of_term ctx term items
+  in Block.create ?x ?y symbol_of_term ctx term items
 
 let render syntax =
   let horiz_padding = 4.0 in
@@ -56,7 +56,7 @@ let render syntax =
          | Syn_Newline -> horiz_padding, y + 1
          | Syn_Widget(widget, _) ->
             widget#set_x x;
-            widget#set_y (Float.of_int y *. Basic.Block.col_height);
+            widget#set_y (Float.of_int y *. Block.col_height);
             x +. widget#width +. horiz_padding, y
          | Syn_Child(hole, _) ->
             hole.placeholder_group#set_x x;
@@ -72,31 +72,3 @@ let render syntax =
   syntax.syn_group#set_height
     (Float.of_int (height + 1) *. Block.col_height);
   dim
-
-let create ~create ~to_term items ~symbol_of_term workspace =
-  let doc = Dom_svg.document in
-  let group = new Widget.group ~rx:5.0 ~ry:5.0 ~style:(Block.style) doc in
-  List.iter items ~f:(function
-      | Syn_Child(hole, _) ->
-         ignore
-           (group#element##appendChild
-              (hole.placeholder_group#element :> Dom.node Js.t))
-      | Syn_Widget(w, _) ->
-         ignore (group#element##appendChild (w#element :> Dom.node Js.t))
-      | _ -> ()
-    );
-  let syntax =
-    { syn_items = items
-    ; syn_create = create
-    ; term_of_arity = to_term
-    ; syn_group = group } in
-  group#element##.onmousedown :=
-    Dom.handler (fun ev ->
-        let x = Float.of_int ev##.clientX in
-        let y = Float.of_int ev##.clientY in
-        let term = run symbol_of_term ~x ~y workspace syntax in
-        Workspace.add_block workspace term;
-        ignore (Block.render_block_and_children term.block);
-        Js._false
-      );
-  syntax
