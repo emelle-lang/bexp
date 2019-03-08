@@ -60,6 +60,7 @@ let render syntax =
             x +. widget#width +. horiz_padding, y
          | Syn_Child(hole, _) ->
             hole.placeholder_group#set_x x;
+            hole.placeholder_group#set_y (Float.of_int y *. Block.col_height);
             Placeholder.render hole;
             x +. hole.placeholder_group#width, y
        in

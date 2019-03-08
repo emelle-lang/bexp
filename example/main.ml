@@ -114,12 +114,16 @@ let not_def =
 let make_not ?x ?y ctx =
   Bexp.Syntax.run ?x ?y symbol_of_pred ctx not_def
 
-let palette =
-  Bexp.Toolbox.create_palette ctx.Bexp.toolbox
-    [ Bexp.Syntax eq_def; Bexp.Syntax not_def ]
+let pred_palette =
+  Bexp.Palette.create ctx.Bexp.toolbox None
+    "Predicates" [ Bexp.Syntax eq_def; Bexp.Syntax not_def ]
+
+let arith_palette =
+  Bexp.Palette.create ctx.Bexp.toolbox (Some (Palette pred_palette))
+    "Arithmetic" [ Bexp.Syntax plus_def; Bexp.Syntax if_def ]
 
 let () =
-  Bexp.Toolbox.set_palette ctx.Bexp.toolbox palette
+  Bexp.Toolbox.set_palette ctx.Bexp.toolbox arith_palette
 
 let () =
   Bexp.Workspace.add_block ctx (make_plus ~x:200.0 ~y:0.0 ctx);

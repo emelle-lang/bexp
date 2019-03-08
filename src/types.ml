@@ -79,13 +79,15 @@ and 'symbols item =
 
 and 'symbols toolbox = {
     toolbox_group : Widget.group;
-    palettes : 'symbols palette Queue.t;
     mutable palette : 'symbols palette option;
   }
 
 and ('symbols, 'sort) palette' = {
+    palette_text : Widget.text;
     palette_group : Widget.group;
     syntactic_forms : ('symbols, 'sort) syntax list;
+    next_palette : 'symbols palette option;
+      (** A linked-list style "pointer" to the next palette *)
   }
 
 and 'symbols palette =
