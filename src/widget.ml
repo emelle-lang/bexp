@@ -6,6 +6,7 @@ class virtual t = object
   method virtual set_x : float -> unit
   method virtual set_y : float -> unit
   method virtual width : float
+  method set_onresize (_ : unit -> unit) = ()
 end
 
 let set_string_prop elem prop str =
@@ -76,6 +77,8 @@ class rect
   method set_height = set_height elem
 
   method set_style = set_string_prop elem "style"
+
+  method set_onresize (_ : unit -> unit) = ()
 end
 
 class group
@@ -116,6 +119,8 @@ class group
 
   method add_child (child : t) =
     ignore (elem##appendChild (child#element :> Dom.node Js.t))
+
+  method set_onresize (_ : unit -> unit) = ()
 end
 
 class text ?(x=0.0) ?(y=0.0) ?style doc text = object
@@ -150,6 +155,8 @@ class text ?(x=0.0) ?(y=0.0) ?style doc text = object
     set_y elem (y +. 15.0)
 
   method width = elem##getComputedTextLength
+
+  method set_onresize (_ : unit -> unit) = ()
 end
 
 class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
@@ -160,12 +167,22 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
   val input = Dom_html.createInput Dom_html.document
 
   initializer
+    input##.value := Js.string str;
     ignore (foreign_obj##appendChild (input :> Dom.node Js.t));
-    ignore (set_x foreign_obj x);
-    ignore (set_y foreign_obj y);
-    ignore (set_width foreign_obj 30.0);
-    ignore (set_height foreign_obj 20.0);
-    ignore (str)
+    set_x foreign_obj x;
+    set_y foreign_obj y;
+    set_width foreign_obj 30.0;
+    set_height foreign_obj 20.0;
+    set_string_prop input "style" "line-height: 10px; font-size: 10px;";
+    ignore (
+        Dom.addEventListener foreign_obj
+          (Dom_html.Event.mousedown)
+          (Dom.handler (fun ev ->
+               Dom_html.stopPropagation ev;
+               Js._true
+          ))
+          Js._false
+      )
 
   method element = foreign_obj
 
@@ -180,4 +197,17 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
   method width = length_of_anim foreign_obj##.width
 
   method height = length_of_anim foreign_obj##.height
+
+  method set_onresize onresize =
+    input##.oninput :=
+      Dom.handler (fun _ ->
+          let char_c = input##.value##.length in
+          set_float_prop input "size" (Float.of_int char_c);
+          let rect = input##getBoundingClientRect in
+          (* Why would the width be undefined...? MDN doesn't note anything
+             like that... *)
+          set_width foreign_obj (Js.Optdef.get rect##.width (fun() -> 0.0));
+          onresize ();
+          Js._false
+        )
 end

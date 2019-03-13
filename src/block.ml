@@ -259,10 +259,14 @@ let create ?(x=0.0) ?(y=0.0) symbol_of_term ctx term items =
          end
       | _ -> ()
     );
-  block.group#element##.onmousedown :=
-    Dom.handler (fun ev ->
-        pick_up (Term term) ev;
-        Dom_html.stopPropagation ev;
-        Js._true
-      );
+  ignore (
+      Dom.addEventListener
+        block.group#element
+        (Dom_html.Event.mousedown)
+        (Dom.handler (fun ev ->
+             pick_up (Term term) ev;
+             Dom_html.stopPropagation ev;
+             Js._false
+           )
+        ) Js._false); (* If this is true, then parent gets picked up first *)
   term

@@ -29,10 +29,11 @@ let text str =
   Syn_Widget ( (text_elem () :> Widget.t)
              , (text_elem :> unit -> Widget.t) )
 
-let text_input ?str () =
+let text_input ?(str="") () =
   let doc = Dom_svg.document in
-  let elem () = new Widget.text_input ?str doc in
-  Syn_Widget ( (elem () :> Widget.t)
+  let elem () = new Widget.text_input ~str doc in
+  let syn_elem = new Widget.text doc str in
+  Syn_Widget ( (syn_elem :> Widget.t)
              , (elem :> unit -> Widget.t) )
 
 let newline = Syn_Newline
@@ -50,7 +51,17 @@ let run symbol_of_term ?x ?y ctx syntax =
         | Syn_Widget(_, f) -> Widget (f ())
         | Syn_Tab -> Tab
       ) syntax.syn_items
-  in Block.create ?x ?y symbol_of_term ctx term items
+  in
+  let block = Block.create ?x ?y symbol_of_term ctx term items in
+  List.iter items ~f:(function
+      | Widget widget ->
+         (* If the widget is ever resized, re-render the block *)
+         widget#set_onresize (fun () ->
+             ignore (Block.render_block_and_parents block.block)
+           )
+      | _ -> ()
+    );
+  block
 
 let render syntax =
   let horiz_padding = 4.0 in
