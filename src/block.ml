@@ -20,10 +20,10 @@ let rec render_block_and_children block : float * int =
             widget#set_y (Float.of_int y *. col_height);
             x +. widget#width +. horiz_padding, y
          | Child (Hole { hole_term; hole_rect; _ }) ->
+            hole_rect#set_x x;
+            hole_rect#set_y (Float.of_int y *. col_height);
             match hole_term with
             | None ->
-               hole_rect#set_x x;
-               hole_rect#set_y (Float.of_int y *. col_height);
                x +. hole_rect#width +. horiz_padding, y
             | Some term ->
                term.block.group#set_x x;
