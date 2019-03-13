@@ -29,6 +29,12 @@ let text str =
   Syn_Widget ( (text_elem () :> Widget.t)
              , (text_elem :> unit -> Widget.t) )
 
+let text_input ?str () =
+  let doc = Dom_svg.document in
+  let elem () = new Widget.text_input ?str doc in
+  Syn_Widget ( (elem () :> Widget.t)
+             , (elem :> unit -> Widget.t) )
+
 let newline = Syn_Newline
 
 let tab = Syn_Tab

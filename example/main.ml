@@ -62,6 +62,14 @@ let height = Bexp.Widget.length_of_anim svg##.height
 let ctx =
   Bexp.Workspace.create ~x:0.0 ~y:0.0 ~width ~height
 
+let num_def =
+  let open Bexp.Syntax in
+  Bexp.Workspace.create_syntax [ text_input ~str:"120" () ]
+    ~create:(fun () -> 120)
+    ~to_term:(fun args -> Num args)
+    ~symbol_of_term:symbol_of_arith
+    ctx
+
 let plus_def =
   let open Bexp.Syntax in
   Bexp.Workspace.create_syntax [nt left; text "+"; nt right]
@@ -116,11 +124,16 @@ let make_not ?x ?y ctx =
 
 let pred_palette =
   Bexp.Palette.create ctx.Bexp.toolbox None
-    "Predicates" [ Bexp.Syntax eq_def; Bexp.Syntax not_def ]
+    "Predicates"
+    [ Bexp.Syntax eq_def
+    ; Bexp.Syntax not_def ]
 
 let arith_palette =
   Bexp.Palette.create ctx.Bexp.toolbox (Some (Palette pred_palette))
-    "Arithmetic" [ Bexp.Syntax plus_def; Bexp.Syntax if_def ]
+    "Arithmetic"
+    [ Bexp.Syntax num_def
+    ; Bexp.Syntax plus_def
+    ; Bexp.Syntax if_def ]
 
 let () =
   Bexp.Toolbox.set_palette ctx.Bexp.toolbox arith_palette

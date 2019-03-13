@@ -113,6 +113,9 @@ class group
   method height = rect#height
 
   method set_height = rect#set_height
+
+  method add_child (child : t) =
+    ignore (elem##appendChild (child#element :> Dom.node Js.t))
 end
 
 class text ?(x=0.0) ?(y=0.0) ?style doc text = object
@@ -147,4 +150,34 @@ class text ?(x=0.0) ?(y=0.0) ?style doc text = object
     set_y elem (y +. 15.0)
 
   method width = elem##getComputedTextLength
+end
+
+class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
+  val foreign_obj =
+    (* Dom_svg.createForeignObject is implemented incorrectly -_- *)
+    (Js.Unsafe.coerce (Dom_svg.createElement doc "foreignObject")
+     : Dom_svg.foreignObjectElement Js.t)
+  val input = Dom_html.createInput Dom_html.document
+
+  initializer
+    ignore (foreign_obj##appendChild (input :> Dom.node Js.t));
+    ignore (set_x foreign_obj x);
+    ignore (set_y foreign_obj y);
+    ignore (set_width foreign_obj 30.0);
+    ignore (set_height foreign_obj 20.0);
+    ignore (str)
+
+  method element = foreign_obj
+
+  method x = length_of_anim foreign_obj##.x
+
+  method set_x = set_x foreign_obj
+
+  method y = length_of_anim foreign_obj##.y
+
+  method set_y = set_y foreign_obj
+
+  method width = length_of_anim foreign_obj##.width
+
+  method height = length_of_anim foreign_obj##.height
 end
