@@ -76,8 +76,7 @@ let remove_from_group block child =
 let clear hole =
   Option.iter hole.hole_term ~f:(fun term ->
       Option.iter hole.hole_parent ~f:(fun parent ->
-          remove_from_group parent term.block.group;
-          append_to_group parent hole.hole_rect
+          remove_from_group parent term.block.group
         )
     );
   hole.hole_term <- None;
