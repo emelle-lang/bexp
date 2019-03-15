@@ -4,9 +4,9 @@ open Types
 
 let create ?(x=0.0) ?y ~width ~height =
   let doc = Dom_svg.document in
-  let style = "fill:grey" in
-  let root_layer = new Widget.group ~x ?y ~width ~height ~style doc in
+  let root_layer = new Widget.group ~x ?y ~width ~height doc in
   let toolbox = Toolbox.create ~x ?y ~width:150.0 ~height in
+  root_layer#rect_style##.fill := Js.string "grey";
   ignore (root_layer#element##appendChild
             (toolbox.toolbox_group#element :> Dom.node Js.t));
   { root_layer
@@ -32,7 +32,8 @@ let render ctx =
 
 let create_syntax ~create ~to_term items ~symbol_of_term workspace =
   let doc = Dom_svg.document in
-  let group = new Widget.group ~rx:5.0 ~ry:5.0 ~style:(Block.style) doc in
+  let group = new Widget.group ~rx:5.0 ~ry:5.0 doc in
+  Block.set_style group#rect_style;
   List.iter items ~f:(function
       | Syn_Child(hole, _) ->
          ignore

@@ -8,8 +8,9 @@ open Types
 module Placeholder = struct
   let create str =
     let doc = Dom_svg.document in
-    let text = new Widget.text ~style:"fill:#ffffff" doc str in
+    let text = new Widget.text doc str in
     let placeholder_group = new Widget.group doc in
+    text#element##.style##.fill := Js.string "#ffffff";
     ignore (placeholder_group#element##appendChild
               (text#element :> Dom.node Js.t));
     { text; placeholder_group }
@@ -25,7 +26,11 @@ let nt hole_f = Syn_Child(Placeholder.create "<input>", hole_f)
 (** Builds a widget that contains text *)
 let text str =
   let doc = Dom_svg.document in
-  let text_elem () = new Widget.text ~style:"fill:#ffffff" doc str in
+  let text_elem () =
+    let text = new Widget.text doc str in
+    text#element##.style##.fill := Js.string "#ffffff";
+    text
+  in
   Syn_Widget ( (text_elem () :> Widget.t)
              , (text_elem :> unit -> Widget.t) )
 

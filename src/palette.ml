@@ -32,9 +32,9 @@ let create toolbox next_palette palette_name syntactic_forms =
   let doc = Dom_svg.document in
   let width = toolbox.toolbox_group#width in
   let height = toolbox.toolbox_group#height in
-  let style = "fill:#ababab" in
   let palette_text = new Widget.text doc palette_name in
-  let palette_group = new Widget.group ~width ~height ~style doc in
+  let palette_group = new Widget.group ~width ~height doc in
+  palette_group#rect_style##.fill := Js.string "#ababab";
   ignore
     (palette_group#element##appendChild
        (palette_text#element :> Dom.node Js.t));

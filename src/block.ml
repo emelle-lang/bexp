@@ -236,18 +236,22 @@ let pick_up ((Term term) as t) ev =
   end;
   begin_drag t ev
 
-let style = "fill:#ff0000; stroke-width:3; stroke:#ffffff"
+let set_style style =
+  style##.fill := Js.string "#ff0000";
+  style##.strokeWidth := Js.string "3";
+  style##.stroke := Js.string "#ffffff"
 
 let create ?(x=0.0) ?(y=0.0) symbol_of_term ctx term items =
   let doc = Dom_svg.document in
   let block =
-    { group = new Widget.group ~x ~y ~rx:5.0 ~ry:5.0 ~style doc
+    { group = new Widget.group ~x ~y ~rx:5.0 ~ry:5.0 doc
     ; items
     ; dim = None
     ; parent = Unattached
     ; ctx
     ; iterator = None } in
   let term = { term; block; symbol_of_term } in
+  set_style block.group#rect_style;
   List.iter items ~f:(function
       | Widget widget -> append_to_group block widget
       | Child (Hole hole) ->

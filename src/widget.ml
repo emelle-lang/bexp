@@ -43,7 +43,6 @@ class rect
         ?(x=0.0) ?(y=0.0)
         ?(width=0.0) ?(height=0.0)
         ?(rx=0.0) ?(ry=0.0)
-        ?style
         doc = object
   val elem =
     let rect_elem = Dom_svg.createRect doc in
@@ -53,9 +52,6 @@ class rect
     set_height rect_elem height;
     set_float_prop rect_elem "rx" rx;
     set_float_prop rect_elem "ry" ry;
-    Option.iter style ~f:(fun style ->
-        set_string_prop rect_elem "style" style
-      );
     rect_elem
 
   method element = elem
@@ -85,11 +81,11 @@ class group
         ?(x=0.0) ?(y=0.0)
         ?(width=0.0) ?(height=0.0)
         ?(rx=0.0) ?(ry=0.0)
-        ?style doc = object
+        doc = object
   val mutable x = x
   val mutable y = y
   val elem = Dom_svg.createG doc
-  val rect = new rect ~x:0.0 ~y:0.0 ~width ~height ~rx ~ry ?style doc
+  val rect = new rect ~x:0.0 ~y:0.0 ~width ~height ~rx ~ry doc
 
   initializer
     set_string_prop elem "transform" (render_transform x y);
@@ -121,9 +117,11 @@ class group
     ignore (elem##appendChild (child#element :> Dom.node Js.t))
 
   method set_onresize (_ : unit -> unit) = ()
+
+  method rect_style = rect#element##.style
 end
 
-class text ?(x=0.0) ?(y=0.0) ?style doc text = object
+class text ?(x=0.0) ?(y=0.0) doc text = object
   val mutable x = x
   val mutable y = y
   val elem =
@@ -131,9 +129,6 @@ class text ?(x=0.0) ?(y=0.0) ?style doc text = object
     ((Js.Unsafe.coerce text_elem)
      : <textContent : Js.js_string Js.t Js.prop> Js.t)##.textContent :=
       Js.string text;
-    Option.iter style ~f:(fun style ->
-        set_string_prop text_elem "style" style
-      );
     text_elem
 
   initializer
