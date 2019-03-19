@@ -33,8 +33,11 @@ let text str =
 let text_input ?(str="") () =
   let doc = Dom_svg.document in
   let elem () = new Widget.text_input ~str doc in
-  let syn_elem = new Widget.text doc str in
-  Syn_Widget ( (syn_elem :> Widget.t)
+  let text_elem = new Widget.text doc str in
+  text_elem#element##.style##.fill := Js.string "black";
+  let wrapper = new Widget.wrapper (text_elem :> Widget.t) doc in
+  wrapper#style##.fill := Js.string "white";
+  Syn_Widget ( (wrapper :> Widget.t)
              , (elem :> unit -> Widget.t) )
 
 let newline = Syn_Newline

@@ -6,7 +6,7 @@ class virtual t = object
   method virtual set_x : float -> unit
   method virtual set_y : float -> unit
   method virtual width : float
-  method set_onresize (_ : unit -> unit) = ()
+  method virtual set_onresize : (unit -> unit) -> unit
 end
 
 let set_string_prop elem prop str =
@@ -166,7 +166,8 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
     set_y foreign_obj y;
     set_width foreign_obj 30.0;
     set_height foreign_obj 20.0;
-    set_string_prop input "style" "line-height: 10px; font-size: 10px;";
+    input##.style##.lineHeight := Js.string "10px";
+    input##.style##.fontSize := Js.string "10px";
     ignore (
         Dom.addEventListener foreign_obj
           (Dom_html.Event.mousedown)
@@ -203,4 +204,37 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
           onresize ();
           Js._false
         )
+
+  method set_enabled b =
+    input##.disabled := Js.bool (not b)
+end
+
+class ['a] wrapper ?x ?y (ch : (#t as 'a)) doc = object
+  val group = new group ?x ?y doc
+  val child = ch
+
+  initializer
+    group#add_child child;
+    (* Hack for my purposes; how to ake this more modular?*)
+    group#set_height 20.0
+
+  method element = group#element
+
+  method x = group#x
+
+  method set_x = group#set_x
+
+  method y = group#y
+
+  method set_y = group#set_y
+
+  method width =
+    group#set_width child#width;
+    child#width
+
+  method set_onresize = child#set_onresize
+
+  method style = group#rect_style
+
+  method wrapped = child
 end
