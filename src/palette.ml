@@ -54,18 +54,24 @@ let create
                      ~rect's_style:syn.syn_group#rect_style;
       syn.syn_group#element##.onmousedown :=
         Dom.handler (fun ev ->
-            let x = Float.of_int ev##.clientX in
-            let y = Float.of_int ev##.clientY in
-            let term =
-              Syntax.run syn.symbol_of_term_template ~x ~y workspace syn in
-            set_style
-              ~g's_style:term.block.group#element##.style
-                           ~rect's_style:term.block.group#rect_style;
-            ignore
-              (workspace.root_layer#element##appendChild
-                 (term.block.group#element :> Dom.node Js.t));
-            Block.begin_drag (Term term) ev;
-            ignore (Block.render_block_and_children term.block);
+            begin match
+              Js.Optdef.to_option ev##.pageX, Js.Optdef.to_option ev##.pageY
+            with
+            | Some x, Some y ->
+               let x = Float.of_int x in
+               let y = Float.of_int y in
+               let term =
+                 Syntax.run syn.symbol_of_term_template ~x ~y workspace syn in
+               set_style
+                 ~g's_style:term.block.group#element##.style
+                              ~rect's_style:term.block.group#rect_style;
+               ignore
+                 (workspace.root_layer#element##appendChild
+                    (term.block.group#element :> Dom.node Js.t));
+               Block.begin_drag (Term term) ev;
+               ignore (Block.render_block_and_children term.block)
+            | _ -> failwith "Unreachable"
+            end;
             Js._false
           );
       palette_group#add_child (syn.syn_group :> Widget.t)
