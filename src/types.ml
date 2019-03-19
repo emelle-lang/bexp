@@ -1,4 +1,5 @@
 open Core_kernel
+open Js_of_ocaml
 
 (** Throughout the code, the data types are parameterized by the ['symbols] type
     variable. This variable represents the set of {i symbols} in the language.
@@ -85,6 +86,10 @@ and 'symbols toolbox = {
 and ('symbols, 'sort) palette' = {
     palette_text : Widget.text;
     palette_group : Widget.group;
+    palette_style :
+      (  g's_style : Dom_html.cssStyleDeclaration Js.t
+      -> rect's_style : Dom_html.cssStyleDeclaration Js.t
+      -> unit );
     syntactic_forms : ('symbols, 'sort) syntax list;
     next_palette : 'symbols palette option;
       (** A linked-list style "pointer" to the next palette *)
@@ -108,12 +113,12 @@ and ('symbols, 'arity) syn_item =
 
     ['symbols] - The set of symbols in the language
     ['sort] - The set of terms (e.g. expr, type, kind)
-    ['arity] - The type of the arity (e.g. type * type, term * term)
- *)
+    ['arity] - The type of the arity (e.g. type * type, term * term) *)
 and ('symbols, 'sort, 'arity) syntax' = {
     syn_items : ('symbols, 'arity) syn_item list;
     syn_create : unit -> 'arity;
     term_of_arity : 'arity -> 'sort;
+    symbol_of_term_template : ('symbols, 'sort) term' -> 'symbols;
     syn_group : Widget.group
   }
 

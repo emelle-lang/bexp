@@ -72,8 +72,6 @@ class rect
 
   method set_height = set_height elem
 
-  method set_style = set_string_prop elem "style"
-
   method set_onresize (_ : unit -> unit) = ()
 end
 

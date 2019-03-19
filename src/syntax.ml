@@ -9,10 +9,10 @@ module Placeholder = struct
   let create str =
     let doc = Dom_svg.document in
     let text = new Widget.text doc str in
+    text#element##.style##.fill := Js.string "white";
     let placeholder_group = new Widget.group doc in
-    text#element##.style##.fill := Js.string "#ffffff";
-    ignore (placeholder_group#element##appendChild
-              (text#element :> Dom.node Js.t));
+    placeholder_group#element##.style##.fill := Js.string "green";
+    placeholder_group#add_child (text :> Widget.t);
     { text; placeholder_group }
 
   let render t =
@@ -26,11 +26,7 @@ let nt hole_f = Syn_Child(Placeholder.create "<input>", hole_f)
 (** Builds a widget that contains text *)
 let text str =
   let doc = Dom_svg.document in
-  let text_elem () =
-    let text = new Widget.text doc str in
-    text#element##.style##.fill := Js.string "#ffffff";
-    text
-  in
+  let text_elem () = new Widget.text doc str in
   Syn_Widget ( (text_elem () :> Widget.t)
              , (text_elem :> unit -> Widget.t) )
 
@@ -95,3 +91,19 @@ let render syntax =
   syntax.syn_group#set_height
     (Float.of_int (height + 1) *. Block.col_height);
   dim
+
+let create ~create ~to_term ~symbol_of_term items =
+  let doc = Dom_svg.document in
+  let group = new Widget.group ~rx:5.0 ~ry:5.0 doc in
+  List.iter items ~f:(function
+      | Syn_Child(hole, _) ->
+         group#add_child (hole.placeholder_group :> Widget.t)
+      | Syn_Widget(w, _) ->
+         group#add_child (w :> Widget.t)
+      | _ -> ()
+    );
+  { syn_items = items
+  ; syn_create = create
+  ; term_of_arity = to_term
+  ; symbol_of_term_template = symbol_of_term
+  ; syn_group = group }
