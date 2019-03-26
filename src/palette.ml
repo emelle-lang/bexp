@@ -26,32 +26,17 @@ let rec render (Palette t) =
   t.palette_group#set_height total_height;
   width, total_height
 
-let create
-      workspace next_palette palette_name
-      ?(palette_style = fun ~g's_style:_ ~rect's_style:_ -> ())
-      syntactic_forms =
-  let set_style ~g's_style ~rect's_style =
-    (* Set defaults *)
-    rect's_style##.fill := Js.string "red";
-    rect's_style##.strokeWidth := Js.string "3";
-    rect's_style##.stroke := Js.string "white";
-    g's_style##.fill := Js.string "white";
-    g's_style##.fontFamily := Js.string "sans-serif";
-    (* Call user-supplied function *)
-    palette_style ~g's_style ~rect's_style
-  in
+let create workspace next_palette palette_data syntactic_forms =
   let toolbox = workspace.toolbox in
   let doc = Dom_svg.document in
   let width = toolbox.toolbox_group#width in
   let height = toolbox.toolbox_group#height in
-  let palette_text = new Widget.text doc palette_name in
+  let palette_text = new Widget.text doc palette_data.palette_name in
   let palette_group = new Widget.group ~width ~height doc in
   palette_group#rect_style##.fill := Js.string "#ababab";
   palette_group#add_child (palette_text :> Widget.t);
   List.iter syntactic_forms ~f:(fun (Syntax syn) ->
-      set_style
-        ~g's_style:syn.syn_group#element##.style
-                     ~rect's_style:syn.syn_group#rect_style;
+      set_style syn.syn_group palette_data;
       syn.syn_group#element##.onmousedown :=
         Dom.handler (fun ev ->
             begin match
@@ -61,10 +46,9 @@ let create
                let x = Float.of_int x in
                let y = Float.of_int y in
                let term =
-                 Syntax.run syn.symbol_of_term_template ~x ~y workspace syn in
-               set_style
-                 ~g's_style:term.block.group#element##.style
-                              ~rect's_style:term.block.group#rect_style;
+                 Syntax.run syn.symbol_of_term_template ~x ~y workspace syn
+               in
+               set_style term.block.group palette_data;
                ignore
                  (workspace.root_layer#element##appendChild
                     (term.block.group#element :> Dom.node Js.t));
@@ -79,8 +63,8 @@ let create
   Option.iter next_palette ~f:(fun (Palette palette) ->
       palette_group#add_child (palette.palette_group :> Widget.t)
     );
-  { palette_text
+  { palette_data
+  ; palette_text
   ; palette_group
-  ; palette_style
   ; syntactic_forms
   ; next_palette }

@@ -83,13 +83,15 @@ and 'symbols toolbox = {
     mutable palette : 'symbols palette option;
   }
 
+and palette_data = {
+    palette_name : string;
+    palette_color : string;
+  }
+
 and ('symbols, 'sort) palette' = {
+    palette_data : palette_data;
     palette_text : Widget.text;
     palette_group : Widget.group;
-    palette_style :
-      (  g's_style : Dom_html.cssStyleDeclaration Js.t
-      -> rect's_style : Dom_html.cssStyleDeclaration Js.t
-      -> unit );
     syntactic_forms : ('symbols, 'sort) syntax list;
     next_palette : 'symbols palette option;
       (** A linked-list style "pointer" to the next palette *)
@@ -104,7 +106,7 @@ and placeholder = {
   }
 
 and ('symbols, 'arity) syn_item =
-  | Syn_Child of placeholder * ('arity -> 'symbols hole)
+  | Syn_Child of placeholder * palette_data * ('arity -> 'symbols hole)
   | Syn_Newline
   | Syn_Widget of Widget.t * (unit -> Widget.t)
   | Syn_Tab
@@ -124,3 +126,12 @@ and ('symbols, 'sort, 'arity) syntax' = {
 
 and ('symbols, 'sort) syntax =
   Syntax : ('symbols, 'sort, _) syntax' -> ('symbols, 'sort) syntax
+
+let set_style widget palette_data =
+  let g's_style = widget#element##.style in
+  let rect's_style = widget#rect_style in
+  rect's_style##.fill := Js.string palette_data.palette_color;
+  rect's_style##.strokeWidth := Js.string "3";
+  rect's_style##.stroke := Js.string "white";
+  g's_style##.fill := Js.string "white";
+  g's_style##.fontFamily := Js.string "sans-serif";

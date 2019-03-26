@@ -62,6 +62,14 @@ let height = Bexp.Widget.length_of_anim svg##.height
 let ctx =
   Bexp.Workspace.create ~x:0.0 ~y:0.0 ~width ~height
 
+let arith_data =
+  { Bexp.palette_name = "arith"
+  ; Bexp.palette_color = "red" }
+
+let pred_data =
+  { Bexp.palette_name = "pred"
+  ; Bexp.palette_color = "blue" }
+
 let num_def =
   let open Bexp.Syntax in
   Bexp.Syntax.create [ text_input ~str:"120" () ]
@@ -71,7 +79,7 @@ let num_def =
 
 let plus_def =
   let open Bexp.Syntax in
-  Bexp.Syntax.create [nt left; text "+"; nt right]
+  Bexp.Syntax.create [nt left arith_data; text "+"; nt right arith_data]
     ~create:(fun () -> ( Bexp.Hole.create get_arith
                        , Bexp.Hole.create get_arith ))
     ~to_term:(fun args -> Add args)
@@ -80,10 +88,10 @@ let plus_def =
 let if_def =
   let open Bexp.Syntax in
   Bexp.Syntax.create
-    [text "if"; nt pred; text "then"; newline;
-     tab; nt conseq; newline;
+    [text "if"; nt pred pred_data; text "then"; newline;
+     tab; nt conseq arith_data; newline;
      text "else"; newline;
-     tab; nt alt]
+     tab; nt alt arith_data]
     ~create:(fun () -> ( Bexp.Hole.create get_pred
                        , Bexp.Hole.create get_arith
                        , Bexp.Hole.create get_arith ))
@@ -92,7 +100,7 @@ let if_def =
 
 let eq_def =
   let open Bexp.Syntax in
-  Bexp.Syntax.create [nt left; text " = "; nt right]
+  Bexp.Syntax.create [nt left arith_data; text " = "; nt right arith_data]
     ~create:(fun () -> ( Bexp.Hole.create get_arith
                        , Bexp.Hole.create get_arith ))
     ~to_term:(fun x -> Equals x)
@@ -100,29 +108,23 @@ let eq_def =
 
 let not_def =
   let open Bexp.Syntax in
-  Bexp.Syntax.create [text "not"; nt (fun x -> Bexp.Hole x)]
+  Bexp.Syntax.create [text "not"; nt (fun x -> Bexp.Hole x) pred_data]
     ~create:(fun () -> Bexp.Hole.create get_pred)
     ~to_term:(fun args -> Not args)
     ~symbol_of_term:symbol_of_pred
 
 let pred_palette =
   Bexp.Palette.create ctx None
-    "Predicates"
+    pred_data
     [ Bexp.Syntax eq_def
     ; Bexp.Syntax not_def ]
-    ~palette_style:(fun ~g's_style:_ ~rect's_style ->
-      rect's_style##.fill := Js.string "blue";
-    )
 
 let arith_palette =
   Bexp.Palette.create ctx (Some (Palette pred_palette))
-    "Arithmetic"
+    arith_data
     [ Bexp.Syntax num_def
     ; Bexp.Syntax plus_def
     ; Bexp.Syntax if_def ]
-    ~palette_style:(fun ~g's_style:_ ~rect's_style ->
-      rect's_style##.fill := Js.string "red";
-    )
 
 let () =
   Bexp.Toolbox.set_palette ctx.Bexp.toolbox arith_palette

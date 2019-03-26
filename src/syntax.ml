@@ -6,13 +6,14 @@ open Js_of_ocaml
 open Types
 
 module Placeholder = struct
-  let create str =
+  let create palette_data =
     let doc = Dom_svg.document in
-    let text = new Widget.text doc str in
+    let text = new Widget.text doc palette_data.palette_name in
     text#element##.style##.fill := Js.string "white";
     let placeholder_group = new Widget.group doc in
     placeholder_group#element##.style##.fill := Js.string "green";
     placeholder_group#add_child (text :> Widget.t);
+    set_style placeholder_group palette_data;
     { text; placeholder_group }
 
   let render t =
@@ -21,7 +22,8 @@ module Placeholder = struct
 end
 
 (** "Nonterminal" *)
-let nt hole_f = Syn_Child(Placeholder.create "<input>", hole_f)
+let nt hole_f palette_data =
+  Syn_Child(Placeholder.create palette_data, palette_data, hole_f)
 
 (** Builds a widget that contains text *)
 let text str =
@@ -50,7 +52,7 @@ let run symbol_of_term ?x ?y ctx syntax =
   let term = syntax.term_of_arity sym in
   let items =
     List.map ~f:(function
-        | Syn_Child(_, hole_f) -> Child (hole_f sym)
+        | Syn_Child(_, _, hole_f) -> Child (hole_f sym)
         | Syn_Newline -> Newline
         | Syn_Widget(_, f) -> Widget (f ())
         | Syn_Tab -> Tab
@@ -79,7 +81,7 @@ let render syntax =
             widget#set_x x;
             widget#set_y (Float.of_int y *. Block.col_height);
             x +. widget#width +. horiz_padding, y
-         | Syn_Child(hole, _) ->
+         | Syn_Child(hole, _, _) ->
             hole.placeholder_group#set_x x;
             hole.placeholder_group#set_y (Float.of_int y *. Block.col_height);
             Placeholder.render hole;
@@ -99,7 +101,7 @@ let create ~create ~to_term ~symbol_of_term items =
   let doc = Dom_svg.document in
   let group = new Widget.group ~rx:5.0 ~ry:5.0 doc in
   List.iter items ~f:(function
-      | Syn_Child(hole, _) ->
+      | Syn_Child(hole, _, _) ->
          group#add_child (hole.placeholder_group :> Widget.t)
       | Syn_Widget(w, _) ->
          group#add_child (w :> Widget.t)
