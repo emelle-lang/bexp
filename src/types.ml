@@ -66,7 +66,7 @@ and ('symbols, 'sort) hole' = {
     term_of_symbol : 'symbols -> ('symbols, 'sort) term' option;
       (** A conversion function that "unpacks" the symbol into a term belongin
           to a specific sort. *)
-    hole_rect : Widget.rect;
+    hole_placeholder : placeholder;
     mutable hole_parent : 'symbols block option;
   }
 
@@ -106,7 +106,9 @@ and placeholder = {
   }
 
 and ('symbols, 'arity) syn_item =
-  | Syn_Child of placeholder * palette_data * ('arity -> 'symbols hole)
+  | Syn_Child :
+      placeholder * ('arity -> ('symbols, 'sort) hole')
+      -> ('symbols, 'arity) syn_item
   | Syn_Newline
   | Syn_Widget of Widget.t * (unit -> Widget.t)
   | Syn_Tab

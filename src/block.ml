@@ -19,12 +19,14 @@ let rec render_block_and_children block : float * int =
             widget#set_x x;
             widget#set_y (Float.of_int y *. col_height);
             x +. widget#width +. horiz_padding, y
-         | Child (Hole { hole_term; hole_rect; _ }) ->
-            hole_rect#set_x x;
-            hole_rect#set_y (Float.of_int y *. col_height);
+         | Child (Hole { hole_term; hole_placeholder; _ }) ->
+            hole_placeholder.placeholder_group#set_x x;
+            hole_placeholder.placeholder_group#set_y
+              (Float.of_int y *. col_height);
+            Hole.Placeholder.render hole_placeholder;
             match hole_term with
             | None ->
-               x +. hole_rect#width +. horiz_padding, y
+               x +. hole_placeholder.placeholder_group#width +. horiz_padding, y
             | Some term ->
                term.block.group#set_x x;
                term.block.group#set_y (Float.of_int y *. col_height);
@@ -114,8 +116,10 @@ let rec find_hovered_hole block x y =
                   | Some term -> find_hovered_hole term.block x y
                   | None ->
                      if in_box x y
-                          hole.hole_rect#x hole.hole_rect#y
-                          hole.hole_rect#width hole.hole_rect#height
+                          hole.hole_placeholder.placeholder_group#x
+                          hole.hole_placeholder.placeholder_group#y
+                          hole.hole_placeholder.placeholder_group#width
+                          hole.hole_placeholder.placeholder_group#height
                      then Some h
                      else None
                   end
@@ -251,7 +255,7 @@ let create ?(x=0.0) ?(y=0.0) symbol_of_term ctx term items =
       | Child (Hole hole) ->
          hole.hole_parent <- Some block;
          begin match hole.hole_term with
-         | None -> append_to_group block hole.hole_rect
+         | None -> append_to_group block hole.hole_placeholder.placeholder_group
          | _ -> ()
          end
       | _ -> ()

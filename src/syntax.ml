@@ -23,7 +23,7 @@ end
 
 (** "Nonterminal" *)
 let nt hole_f palette_data =
-  Syn_Child(Placeholder.create palette_data, palette_data, hole_f)
+  Syn_Child(Hole.Placeholder.create palette_data, hole_f)
 
 (** Builds a widget that contains text *)
 let text str =
@@ -52,7 +52,7 @@ let run symbol_of_term ?x ?y ctx syntax =
   let term = syntax.term_of_arity sym in
   let items =
     List.map ~f:(function
-        | Syn_Child(_, _, hole_f) -> Child (hole_f sym)
+        | Syn_Child(_, hole_f) -> Child (Hole (hole_f sym))
         | Syn_Newline -> Newline
         | Syn_Widget(_, f) -> Widget (f ())
         | Syn_Tab -> Tab
@@ -81,10 +81,10 @@ let render syntax =
             widget#set_x x;
             widget#set_y (Float.of_int y *. Block.col_height);
             x +. widget#width +. horiz_padding, y
-         | Syn_Child(hole, _, _) ->
+         | Syn_Child(hole, _) ->
             hole.placeholder_group#set_x x;
             hole.placeholder_group#set_y (Float.of_int y *. Block.col_height);
-            Placeholder.render hole;
+            Hole.Placeholder.render hole;
             x +. hole.placeholder_group#width, y
        in
        let max_width = Float.max max_width x in
@@ -101,7 +101,7 @@ let create ~create ~to_term ~symbol_of_term items =
   let doc = Dom_svg.document in
   let group = new Widget.group ~rx:5.0 ~ry:5.0 doc in
   List.iter items ~f:(function
-      | Syn_Child(hole, _, _) ->
+      | Syn_Child(hole, _) ->
          group#add_child (hole.placeholder_group :> Widget.t)
       | Syn_Widget(w, _) ->
          group#add_child (w :> Widget.t)

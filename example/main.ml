@@ -36,15 +36,15 @@ let symbol_of_arith a = Arith a
 
 let symbol_of_pred p = Pred p
 
-let left (l, _) = Bexp.Hole l
+let left (l, _) = l
 
-let right (_, r) = Bexp.Hole r
+let right (_, r) = r
 
-let pred (p, _, _) = Bexp.Hole p
+let pred (p, _, _) = p
 
-let conseq (_, c, _) = Bexp.Hole c
+let conseq (_, c, _) = c
 
-let alt (_, _, a) = Bexp.Hole a
+let alt (_, _, a) = a
 
 let svg =
   match
@@ -80,8 +80,8 @@ let num_def =
 let plus_def =
   let open Bexp.Syntax in
   Bexp.Syntax.create [nt left arith_data; text "+"; nt right arith_data]
-    ~create:(fun () -> ( Bexp.Hole.create get_arith
-                       , Bexp.Hole.create get_arith ))
+    ~create:(fun () -> ( Bexp.Hole.create get_arith arith_data
+                       , Bexp.Hole.create get_arith arith_data ))
     ~to_term:(fun args -> Add args)
     ~symbol_of_term:symbol_of_arith
 
@@ -92,24 +92,24 @@ let if_def =
      tab; nt conseq arith_data; newline;
      text "else"; newline;
      tab; nt alt arith_data]
-    ~create:(fun () -> ( Bexp.Hole.create get_pred
-                       , Bexp.Hole.create get_arith
-                       , Bexp.Hole.create get_arith ))
+    ~create:(fun () -> ( Bexp.Hole.create get_pred pred_data
+                       , Bexp.Hole.create get_arith arith_data
+                       , Bexp.Hole.create get_arith arith_data ))
     ~to_term:(fun args -> If args)
     ~symbol_of_term:symbol_of_arith
 
 let eq_def =
   let open Bexp.Syntax in
   Bexp.Syntax.create [nt left arith_data; text " = "; nt right arith_data]
-    ~create:(fun () -> ( Bexp.Hole.create get_arith
-                       , Bexp.Hole.create get_arith ))
+    ~create:(fun () -> ( Bexp.Hole.create get_arith arith_data
+                       , Bexp.Hole.create get_arith arith_data ))
     ~to_term:(fun x -> Equals x)
     ~symbol_of_term:symbol_of_pred
 
 let not_def =
   let open Bexp.Syntax in
-  Bexp.Syntax.create [text "not"; nt (fun x -> Bexp.Hole x) pred_data]
-    ~create:(fun () -> Bexp.Hole.create get_pred)
+  Bexp.Syntax.create [text "not"; nt (fun x -> x) pred_data]
+    ~create:(fun () -> Bexp.Hole.create get_pred pred_data)
     ~to_term:(fun args -> Not args)
     ~symbol_of_term:symbol_of_pred
 
