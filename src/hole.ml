@@ -25,11 +25,14 @@ let create term_of_symbol palette_data =
   ; hole_placeholder = placeholder
   ; hole_parent = None }
 
-let highlight _hole = ()
-  (*hole.hole_rect#element##.style##.fill := Js.string "#ffffff"*)
+let highlight hole =
+  hole.hole_placeholder.placeholder_group#rect_style##.stroke :=
+    Js.string "green"
 
-let highlight_error _hole = ()
-  (*hole.hole_rect#element##.style##.fill := Js.string "#ffa0a0"*)
+let highlight_error hole =
+  hole.hole_placeholder.placeholder_group#rect_style##.stroke :=
+    Js.string "#ffa0a0"
 
-let unhighlight _hole = ()
-  (*hole.hole_rect#element##.style##.fill := Js.string "#a0a0a0"*)
+let unhighlight hole =
+  hole.hole_placeholder.placeholder_group#rect_style##.stroke :=
+    Js.string "white"

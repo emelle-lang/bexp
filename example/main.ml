@@ -63,7 +63,7 @@ let ctx =
   Bexp.Workspace.create ~x:0.0 ~y:0.0 ~width ~height
 
 let arith_data =
-  { Bexp.palette_name = "arith"
+  { Bexp.palette_name = "arithmetic"
   ; Bexp.palette_color = "red" }
 
 let pred_data =

@@ -1,12 +1,12 @@
 open Base
 open Js_of_ocaml
 
-class virtual t = object
-  method virtual element : Dom_svg.element Js.t
-  method virtual set_x : float -> unit
-  method virtual set_y : float -> unit
-  method virtual width : float
-  method virtual set_onresize : (unit -> unit) -> unit
+class type t = object
+  method element : Dom_svg.element Js.t
+  method set_x : float -> unit
+  method set_y : float -> unit
+  method width : float
+  method set_onresize : (unit -> unit) -> unit
 end
 
 let set_string_prop elem prop str =
@@ -117,6 +117,10 @@ class group
   method set_onresize (_ : unit -> unit) = ()
 
   method rect_style = rect#element##.style
+
+  method show = elem##.style##.visibility := Js.string "visible"
+
+  method hide = elem##.style##.visibility := Js.string "collapse"
 end
 
 class text ?(x=0.0) ?(y=0.0) doc text = object
@@ -215,7 +219,7 @@ class ['a] wrapper ?x ?y (ch : (#t as 'a)) doc = object
 
   initializer
     group#add_child child;
-    (* Hack for my purposes; how to ake this more modular?*)
+    (* Hack for my purposes; how to make this more modular? *)
     group#set_height 20.0
 
   method element = group#element

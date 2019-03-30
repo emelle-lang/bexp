@@ -5,8 +5,7 @@ open Types
 let col_height = 25.0
 
 (* Returns the dimensions of the rendered block, which are used in its
-   recursive calls when handling child blocks that have not been rendered yet
- *)
+   recursive calls when handling child blocks that have not been rendered yet *)
 let rec render_block_and_children block : float * int =
   let horiz_padding = 4.0 in
   let rec loop max_width x y = function
@@ -82,6 +81,7 @@ let clear hole =
         )
     );
   hole.hole_term <- None;
+  hole.hole_placeholder.placeholder_group#show;
   match hole.hole_parent with
   | Some parent -> render_block_and_parents parent
   | None -> (0.0, 0.0)
@@ -192,6 +192,7 @@ let drop ((Term term) as t) =
           Hole.unhighlight hole
        | Some term ->
           hole.hole_term <- Some term;
+          hole.hole_placeholder.placeholder_group#hide;
           term.block.parent <- Hole_parent (Hole hole);
           Option.iter hole.hole_parent ~f:(fun parent ->
               append_to_group parent term.block.group;
