@@ -12,20 +12,20 @@ type arith =
   | Num of int
 
 and binop =
-  (symbols, arith) Bexp.hole' * (symbols, arith) Bexp.hole'
+  (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole
 
 and if_expr =
-  (symbols, pred) Bexp.hole'
-  * (symbols, arith) Bexp.hole'
-  * (symbols, arith) Bexp.hole'
+  (symbols, pred) Bexp.hole
+  * (symbols, arith) Bexp.hole
+  * (symbols, arith) Bexp.hole
 
 and pred =
   | Equals of binop
-  | Not of (symbols, pred) Bexp.hole'
+  | Not of (symbols, pred) Bexp.hole
 
 and symbols =
-  | Arith of (symbols, arith) Bexp.term'
-  | Pred of (symbols, pred) Bexp.term'
+  | Arith of (symbols, arith) Bexp.term
+  | Pred of (symbols, pred) Bexp.term
 
 let doc = Dom_svg.document
 

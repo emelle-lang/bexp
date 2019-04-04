@@ -25,9 +25,9 @@ open Js_of_ocaml
 
 type 'symbols ctx = {
     root_layer : Widget.group;
-    mutable picked_up_block : 'symbols term option;
-    scripts : 'symbols term Doubly_linked.t;
-    mutable drop_candidate : 'symbols hole option;
+    mutable picked_up_block : 'symbols exists_term option;
+    scripts : 'symbols exists_term Doubly_linked.t;
+    mutable drop_candidate : 'symbols exists_hole option;
     toolbox : 'symbols toolbox;
   }
 
@@ -39,13 +39,13 @@ and 'symbols block = {
           is counted in discrete intervals! *)
     mutable parent : 'symbols parent;
     ctx : 'symbols ctx;
-    mutable iterator : 'symbols term Doubly_linked.Elt.t option
+    mutable iterator : 'symbols exists_term Doubly_linked.Elt.t option
   }
 
 and 'symbols parent =
-  | Hole_parent of 'symbols hole
+  | Hole_parent of 'symbols exists_hole
   | Picked_up
-  | Root of 'symbols term Doubly_linked.Elt.t
+  | Root of 'symbols exists_term Doubly_linked.Elt.t
   | Unattached
 
 (** [term'] is parameterized by both the set of ['symbols] in the language and
@@ -54,38 +54,39 @@ and 'symbols parent =
     {{: https://en.wikipedia.org/wiki/Many-sorted_logic} many-sorted logics} in
     a type-safe manner. *)
 
-and ('symbols, 'sort) term' = {
+and ('symbols, 'sort) term = {
     block : 'symbols block;
     term : 'sort;
-    symbol_of_term : ('symbols, 'sort) term' -> 'symbols;
+    symbol_of_term : ('symbols, 'sort) term -> 'symbols;
       (** A conversion function that "packs" the wrapped term into the symbol
           type *)
   }
 
 (** In order for terms of different sorts to be used together, the sort needs to
     abstracted away in an existential type variable. *)
-and 'symbols term = Term : ('symbols, 'sort) term' -> 'symbols term
+and 'symbols exists_term = Term : ('symbols, 'sort) term -> 'symbols exists_term
 
-and ('symbols, 'sort) hole' = {
-    mutable hole_term : ('symbols, 'sort) term' option;
-    term_of_symbol : 'symbols -> ('symbols, 'sort) term' option;
+and ('symbols, 'sort) hole = {
+    mutable hole_term : ('symbols, 'sort) term option;
+    term_of_symbol : 'symbols -> ('symbols, 'sort) term option;
       (** A conversion function that "unpacks" the symbol into a term belongin
           to a specific sort. *)
     hole_placeholder : placeholder;
     mutable hole_parent : 'symbols block option;
   }
 
-and 'symbols hole = Hole : ('symbols, 'sort) hole' -> 'symbols hole
+and 'symbols exists_hole =
+  Hole : ('symbols, 'sort) hole -> 'symbols exists_hole
 
 and 'symbols item =
-  | Child of 'symbols hole
+  | Child of 'symbols exists_hole
   | Newline
   | Widget of Widget.t (** A reference to a "keyword" *)
   | Tab
 
 and 'symbols toolbox = {
     toolbox_group : Widget.group;
-    mutable palette : 'symbols palette option;
+    mutable palette : 'symbols exists_palette option;
   }
 
 and palette_data = {
@@ -93,17 +94,17 @@ and palette_data = {
     palette_color : string;
   }
 
-and ('symbols, 'sort) palette' = {
+and ('symbols, 'sort) palette = {
     palette_data : palette_data;
     palette_text : Widget.text;
     palette_group : Widget.group;
-    syntactic_forms : ('symbols, 'sort) syntax list;
-    next_palette : 'symbols palette option;
+    syntactic_forms : ('symbols, 'sort) exists_syntax list;
+    next_palette : 'symbols exists_palette option;
       (** A linked-list style "pointer" to the next palette *)
   }
 
-and 'symbols palette =
-  Palette : ('symbols, 'sort) palette' -> 'symbols palette
+and 'symbols exists_palette =
+  Palette : ('symbols, _) palette -> 'symbols exists_palette
 
 and placeholder = {
     placeholder_group : Widget.group;
@@ -112,7 +113,7 @@ and placeholder = {
 
 and ('symbols, 'arity) syn_item =
   | Syn_Child :
-      placeholder * ('arity -> ('symbols, 'sort) hole')
+      placeholder * ('arity -> ('symbols, _) hole)
       -> ('symbols, 'arity) syn_item
   | Syn_Newline
   | Syn_Widget of Widget.t * (unit -> Widget.t)
@@ -123,16 +124,16 @@ and ('symbols, 'arity) syn_item =
     ['symbols] - The set of symbols in the language
     ['sort] - The set of terms (e.g. expr, type, kind)
     ['arity] - The type of the arity (e.g. type * type, term * term) *)
-and ('symbols, 'sort, 'arity) syntax' = {
+and ('symbols, 'sort, 'arity) syntax = {
     syn_items : ('symbols, 'arity) syn_item list;
     syn_create : unit -> 'arity;
     term_of_arity : 'arity -> 'sort;
-    symbol_of_term_template : ('symbols, 'sort) term' -> 'symbols;
+    symbol_of_term_template : ('symbols, 'sort) term -> 'symbols;
     syn_group : Widget.group
   }
 
-and ('symbols, 'sort) syntax =
-  Syntax : ('symbols, 'sort, _) syntax' -> ('symbols, 'sort) syntax
+and ('symbols, 'sort) exists_syntax =
+  Syntax : ('symbols, 'sort, _) syntax -> ('symbols, 'sort) exists_syntax
 
 let set_style widget palette_data =
   let g's_style = widget#element##.style in
