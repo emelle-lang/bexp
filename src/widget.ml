@@ -201,7 +201,7 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
 
   method height = length_of_anim foreign_obj##.height
 
-  method set_onresize onresize =
+  method set_onresize (onresize : unit -> unit) =
     input##.oninput :=
       Dom.handler (fun _ ->
           let char_c = input##.value##.length in

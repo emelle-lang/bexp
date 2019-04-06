@@ -16,7 +16,7 @@ before_script:
 build:
   stage: build
   script:
-  - dune build example/main.bc.js
+  - dune build example/main.bc.js --profile release
   - dune build example/index.html
   artifacts:
     paths:
