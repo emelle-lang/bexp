@@ -161,7 +161,7 @@ class text ?(x=0.0) ?(y=0.0) doc text = object
   method set_onresize (_ : unit -> unit) = ()
 end
 
-class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
+class text_input ?(x=0.0) ?(y=0.0) ?(str="") set_str doc = object
   val foreign_obj =
     (* Dom_svg.createForeignObject is implemented incorrectly -_- *)
     (Js.Unsafe.coerce (Dom_svg.createElement doc "foreignObject")
@@ -204,7 +204,8 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object
   method set_onresize (onresize : unit -> unit) =
     input##.oninput :=
       Dom.handler (fun _ ->
-          let char_c = input##.value##.length in
+          let str = set_str (Js.to_string input##.value) in
+          let char_c = String.length str in
           set_float_prop input "size" (Float.of_int char_c);
           let rect = input##getBoundingClientRect in
           (* Why would the width be undefined...? MDN doesn't note anything

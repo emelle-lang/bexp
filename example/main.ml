@@ -9,7 +9,7 @@ open Js_of_ocaml
 type arith =
   | Add of binop
   | If of if_expr
-  | Num of int
+  | Num of string ref
 
 and binop =
   (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole
@@ -77,8 +77,9 @@ let pred_data =
 
 let num_def =
   let open Bexp.Syntax in
-  Bexp.Syntax.create [ text_input ~str:"120" () ]
-    ~create:(fun () -> 120)
+  let str_ref = ref "120" in
+  Bexp.Syntax.create [ text_input ~str:"120" (fun str -> str_ref := str; str) ]
+    ~create:(fun () -> str_ref)
     ~to_term:(fun args -> Num args)
     ~symbol_of_term:symbol_of_arith
 
