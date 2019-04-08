@@ -96,8 +96,11 @@ and palette_data = {
 
 and ('symbols, 'sort) palette = {
     palette_data : palette_data;
+    palette_root : Widget.group;
     palette_text : Widget.text;
+    palette_bar : Widget.group;
     palette_group : Widget.group;
+    mutable palette_collapsed : bool;
     syntactic_forms : ('symbols, 'sort) exists_syntax list;
     next_palette : 'symbols exists_palette option;
       (** A linked-list style "pointer" to the next palette *)

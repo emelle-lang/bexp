@@ -17,7 +17,7 @@ let set_palette toolbox palette =
   toolbox.palette <- Some (Palette palette);
   ignore
     (toolbox.toolbox_group#element##appendChild
-       (palette.palette_group#element :> Dom.node Js.t))
+       (palette.palette_root#element :> Dom.node Js.t))
 
 let render toolbox =
   Option.iter toolbox.palette ~f:(fun palette ->
