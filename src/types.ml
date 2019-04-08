@@ -102,6 +102,7 @@ and ('symbols, 'sort) palette = {
     palette_group : Widget.group;
     mutable palette_collapsed : bool;
     syntactic_forms : ('symbols, 'sort) exists_syntax list;
+    mutable palette_y_offset : float;
     next_palette : 'symbols exists_palette option;
       (** A linked-list style "pointer" to the next palette *)
   }

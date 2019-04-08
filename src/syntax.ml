@@ -90,7 +90,7 @@ let render syntax =
             hole.placeholder_group#set_x x;
             hole.placeholder_group#set_y (Float.of_int y *. Block.col_height);
             Hole.Placeholder.render hole;
-            x +. hole.placeholder_group#width, y
+            x +. hole.placeholder_group#width +. horiz_padding, y
        in
        let max_width = Float.max max_width x in
        loop max_width x y items

@@ -10,39 +10,41 @@ open Types
 
 let bar_height = 20.0
 
-let rec render (Palette t) =
-  let width, cols =
-    List.fold t.syntactic_forms ~init:(t.palette_text#width, 1)
-      ~f:(fun (width, cols) (Syntax syn) ->
-        syn.syn_group#set_y (Float.of_int cols *. Block.col_height);
-        let (width', cols') = Syntax.render syn in
-        (Float.max width width', cols + cols' + 1)
+let render palette =
+  let rec f acc (Palette t) =
+    t.palette_y_offset <- acc;
+    let width, cols =
+      List.fold t.syntactic_forms ~init:(t.palette_text#width, 1)
+        ~f:(fun (width, cols) (Syntax syn) ->
+          syn.syn_group#set_y (Float.of_int cols *. Block.col_height);
+          let (width', cols') = Syntax.render syn in
+          (Float.max width width', cols + cols' + 1)
+        ) in
+    let t's_height =
+      if t.palette_collapsed then (
+        t.palette_group#hide;
+        bar_height
+      ) else (
+        t.palette_group#show;
+        bar_height +. Float.of_int cols *. Block.col_height
       ) in
-  let t's_height =
-    if t.palette_collapsed then (
-      t.palette_group#hide;
-      bar_height
-    ) else (
-      t.palette_group#show;
-      bar_height +. Float.of_int cols *. Block.col_height
-    ) in
-  let next's_width, next's_height =
-    match t.next_palette with
-    | None -> (0.0, 0.0)
-    | Some next ->
-       let Palette next' = next in
-       let next's_width, next's_height = render next in
-       next'.palette_root#set_y t's_height;
-       next's_width, next's_height
-  in
-  let width = Float.max next's_width width in
-  let total_height = next's_height +. t's_height in
-  t.palette_bar#set_width width;
-  t.palette_group#set_width width;
-  t.palette_group#set_height t's_height;
-  t.palette_root#set_width width;
-  t.palette_root#set_height t's_height;
-  width, total_height
+    let next's_width, next's_height =
+      match t.next_palette with
+      | None -> 0.0, 0.0
+      | Some next ->
+         let Palette next' = next in
+         let next's_width, next's_height = f (acc +. t's_height) next in
+         next'.palette_root#set_y t's_height;
+         next's_width, next's_height
+    in
+    let width = Float.max next's_width width in
+    t.palette_bar#set_width width;
+    t.palette_group#set_width width;
+    t.palette_group#set_height t's_height;
+    t.palette_root#set_width width;
+    t.palette_root#set_height t's_height;
+    width, t's_height +. next's_height
+  in f bar_height palette
 
 let create workspace next_palette palette_data syntactic_forms =
   let toolbox = workspace.toolbox in
@@ -72,6 +74,7 @@ let create workspace next_palette palette_data syntactic_forms =
     ; palette_text
     ; palette_bar
     ; palette_group
+    ; palette_y_offset = 0.0
     ; palette_collapsed = false
     ; syntactic_forms
     ; next_palette } in
@@ -87,23 +90,17 @@ let create workspace next_palette palette_data syntactic_forms =
       set_style syn.syn_group palette_data;
       syn.syn_group#element##.onmousedown :=
         Dom.handler (fun ev ->
-            begin match
-              Js.Optdef.to_option ev##.pageX, Js.Optdef.to_option ev##.pageY
-            with
-            | Some x, Some y ->
-               let x = Float.of_int x in
-               let y = Float.of_int y in
-               let term =
-                 Syntax.run syn.symbol_of_term_template ~x ~y workspace syn
-               in
-               set_style term.block.group palette_data;
-               ignore
-                 (workspace.root_layer#element##appendChild
-                    (term.block.group#element :> Dom.node Js.t));
-               Block.begin_drag (Term term) ev;
-               ignore (Block.render_block_and_children term.block)
-            | _ -> failwith "Unreachable"
-            end;
+            let x = syn.syn_group#x in
+            let y = syn.syn_group#y +. palette.palette_y_offset in
+            let term =
+              Syntax.run syn.symbol_of_term_template ~x ~y workspace syn
+            in
+            set_style term.block.group palette_data;
+            ignore
+              (workspace.root_layer#element##appendChild
+                 (term.block.group#element :> Dom.node Js.t));
+            Block.begin_drag (Term term) ev;
+            ignore (Block.render_block_and_children term.block);
             Js._false
           );
       palette_group#add_child (syn.syn_group :> Widget.t)
