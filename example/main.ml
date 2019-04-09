@@ -3,6 +3,7 @@
    This Source Code Form is subject to the terms of the Mozilla Public
    License, v. 2.0. If a copy of the MPL was not distributed with this
    file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
+
 open Core_kernel
 open Js_of_ocaml
 
@@ -64,9 +65,6 @@ let width = Bexp.Widget.length_of_anim svg##.width
 
 let height = Bexp.Widget.length_of_anim svg##.height
 
-let ctx =
-  Bexp.Workspace.create ~x:0.0 ~y:0.0 ~width ~height
-
 let arith_data =
   { Bexp.palette_name = "arithmetic"
   ; Bexp.palette_color = "red" }
@@ -74,6 +72,10 @@ let arith_data =
 let pred_data =
   { Bexp.palette_name = "pred"
   ; Bexp.palette_color = "blue" }
+
+let ctx =
+  Bexp.create ~x:0.0 ~y:0.0 ~width ~height
+    (Bexp.Hole.create get_arith arith_data)
 
 let num_def =
   let open Bexp.Syntax in
@@ -120,21 +122,22 @@ let not_def =
     ~symbol_of_term:symbol_of_pred
 
 let pred_palette =
-  Bexp.Palette.create ctx None
+  Bexp.Palette.create ctx.Bexp.workspace None
     pred_data
     [ Bexp.Syntax eq_def
     ; Bexp.Syntax not_def ]
 
 let arith_palette =
-  Bexp.Palette.create ctx (Some (Palette pred_palette))
+  Bexp.Palette.create ctx.Bexp.workspace (Some (Palette pred_palette))
     arith_data
     [ Bexp.Syntax num_def
     ; Bexp.Syntax plus_def
     ; Bexp.Syntax if_def ]
 
 let () =
-  Bexp.Toolbox.set_palette ctx.Bexp.toolbox arith_palette
+  Bexp.Toolbox.set_palette ctx.Bexp.workspace.toolbox arith_palette
 
 let () =
-  ignore (svg##appendChild (ctx.Bexp.root_layer#element :> Dom.node Js.t));
-  Bexp.Workspace.render ctx
+  ignore
+    (svg##appendChild (ctx.Bexp.workspace.root_layer#element :> Dom.node Js.t));
+  Bexp.Workspace.render ctx.Bexp.workspace

@@ -5,6 +5,11 @@
    file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
 include Types
 
+let create ?x ?y ~width ~height hole =
+  let workspace = Workspace.create ?x ?y ~width ~height hole in
+  { workspace
+  ; hole }
+
 module Block = Block
 module Hole = Hole
 module Palette = Palette

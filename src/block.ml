@@ -23,17 +23,14 @@ let rec render_block_and_children block : float * int =
             widget#set_x x;
             widget#set_y (Float.of_int y *. col_height);
             x +. widget#width +. horiz_padding, y
-         | Child (Hole { hole_term; hole_placeholder; _ }) ->
-            hole_placeholder.placeholder_group#set_x x;
-            hole_placeholder.placeholder_group#set_y
-              (Float.of_int y *. col_height);
-            Hole.Placeholder.render hole_placeholder;
+         | Child (Hole { hole_term; hole_group; hole_placeholder; _ }) ->
+            hole_group#set_x x;
+            hole_group#set_y (Float.of_int y *. col_height);
             match hole_term with
             | None ->
+               Hole.Placeholder.render hole_placeholder;
                x +. hole_placeholder.placeholder_group#width +. horiz_padding, y
             | Some term ->
-               term.block.group#set_x x;
-               term.block.group#set_y (Float.of_int y *. col_height);
                let (dx, dy) = match term.block.dim with
                  | Some dim -> dim
                  | None -> render_block_and_children term.block
@@ -62,15 +59,16 @@ let rec render_block_and_children block : float * int =
 let render_block_and_parents block =
   let rec go x y block =
     ignore (render_block_and_children block);
-    let x = x +. block.group#x in
-    let y = y +. block.group#y in
     match block.parent with
     | Hole_parent (Hole hole) ->
+       let x = x +. hole.hole_group#x in
+       let y = y +. hole.hole_group#y in
        begin match hole.hole_parent with
        | Some parent -> go x y parent
        | None -> (x, y)
        end
-    | _ -> (x, y)
+    | Root _ -> (block.group#x, block.group#y)
+    | _ -> (0.0, 0.0)
   in go 0.0 0.0 block
 
 let append_to_group block child =
@@ -104,28 +102,28 @@ let in_box x y box_x box_y box_w box_h =
   x >= box_x && x < box_x + box_w && y >= box_y && y < box_y + box_h
 
 (* Searches for a block hole that is under the given coordinates *)
-let rec find_hovered_hole block x y =
+let rec find_hovered_hole block block_x block_y x y =
   Option.bind block.dim ~f:(fun (width, block_cols) ->
       (* Are coordinates in block? *)
-      if in_box x y block.group#x block.group#y
+      if in_box x y block_x block_y
            width (Float.of_int (block_cols + 1) *. col_height) then
-        (* Relativize coordinates *)
-        let x = (x -. block.group#x) in
-        let y = (y -. block.group#y) in
         List.fold block.items ~init:None ~f:(fun acc next ->
             match acc with
             | None ->
                begin match next with
                | Child ((Hole hole) as h) ->
                   begin match hole.hole_term with
-                  | Some term -> find_hovered_hole term.block x y
+                  | Some term ->
+                     find_hovered_hole term.block
+                       (block_x +. hole.hole_group#x)
+                       (block_y +. hole.hole_group#y) x y
                   | None ->
                      if in_box x y
-                          hole.hole_placeholder.placeholder_group#x
-                          hole.hole_placeholder.placeholder_group#y
+                          (block_x +. hole.hole_group#x)
+                          (block_y +. hole.hole_group#y)
                           hole.hole_placeholder.placeholder_group#width
-                          hole.hole_placeholder.placeholder_group#height
-                     then Some h
+                          hole.hole_placeholder.placeholder_group#height then
+                       Some h
                      else None
                   end
                | _ -> None
@@ -160,50 +158,56 @@ let drag term ev x_offset y_offset =
       Hole.unhighlight hole
     );
   let hole =
-    Doubly_linked.fold block.ctx.scripts ~init:None
+    let (Hole hole) as h = block.ctx.entry_exists_hole in
+    let opt = match hole.hole_term with
+      | None ->
+         if in_box x y
+              hole.hole_group#x
+              hole.hole_group#y
+              hole.hole_placeholder.placeholder_group#width
+              hole.hole_placeholder.placeholder_group#height then
+           Some h
+         else
+           None
+      | Some term ->
+         find_hovered_hole term.block hole.hole_group#x hole.hole_group#y x y
+    in
+    Doubly_linked.fold block.ctx.scripts ~init:opt
       ~f:(fun acc (Term t) ->
         match acc with
-        | None -> find_hovered_hole t.block x y
+        | None ->
+           find_hovered_hole t.block t.block.group#x t.block.group#y x y
         | some -> some
       ) in
   match hole with
   | None ->
      block.ctx.drop_candidate <- None
-  | Some ((Hole hole) as h) ->
+  | Some (Hole hole) as candidate ->
      match hole.term_of_symbol (term.symbol_of_term term) with
      | None ->
-        block.ctx.drop_candidate <- Some h;
+        block.ctx.drop_candidate <- candidate;
         Hole.highlight_error hole
      | Some _ ->
-        block.ctx.drop_candidate <- Some h;
+        block.ctx.drop_candidate <- candidate;
         Hole.highlight hole
 
 let drop ((Term term) as t) =
   let block = term.block in
-  if block.group#x < block.ctx.toolbox.toolbox_group#width then (
+  if block.group#x < block.ctx.toolbox.toolbox_group#width then
     (* Block is hovering above toolbox, discard *)
     ignore (block.ctx.root_layer#element##removeChild
               (block.group#element :> Dom.node Js.t))
-  ) else (
+  else
     let f () =
-      block.parent <- Root (Doubly_linked.insert_first block.ctx.scripts t)
-    in
+      block.parent <- Root (Doubly_linked.insert_first block.ctx.scripts t) in
     match block.ctx.drop_candidate with
     | None -> f ()
     | Some (Hole hole) ->
-       match hole.term_of_symbol (term.symbol_of_term term) with
-       | None ->
-          f ();
-          Hole.unhighlight hole
-       | Some term ->
-          hole.hole_term <- Some term;
-          hole.hole_placeholder.placeholder_group#hide;
-          term.block.parent <- Hole_parent (Hole hole);
-          Option.iter hole.hole_parent ~f:(fun parent ->
-              append_to_group parent term.block.group;
-              ignore (render_block_and_parents parent)
-            )
-  )
+       Hole.set_term hole term ~none:f ~some:(fun term ->
+           term.block.group#set_x 0.0;
+           term.block.group#set_y 0.0;
+           ignore (render_block_and_parents term.block)
+         )
 
 let begin_drag ((Term term) as t) ev =
   let block = term.block in
@@ -234,12 +238,12 @@ let pick_up ((Term term) as t) ev =
   let block = term.block in
   begin match block.parent with
   | Hole_parent (Hole hole) ->
-     let (x, y) = clear hole in
-     block.group#set_x (block.group#x +. x);
-     block.group#set_y (block.group#y +. y);
-     Option.iter hole.hole_parent ~f:(fun parent ->
-         ignore (render_block_and_parents parent)
-       )
+     Hole.clear hole;
+     let (x, y) = match hole.hole_parent with
+       | Some parent -> render_block_and_parents parent
+       | None -> (0.0, 0.0) in
+     block.group#set_x (hole.hole_group#x +.x);
+     block.group#set_y (hole.hole_group#y +.y)
   | Root iterator ->
      Doubly_linked.remove block.ctx.scripts iterator
   | _ -> ()
@@ -261,7 +265,7 @@ let create ?(x=0.0) ?(y=0.0) symbol_of_term ctx term items =
       | Child (Hole hole) ->
          hole.hole_parent <- Some block;
          begin match hole.hole_term with
-         | None -> append_to_group block hole.hole_placeholder.placeholder_group
+         | None -> append_to_group block hole.hole_group
          | _ -> ()
          end
       | _ -> ()

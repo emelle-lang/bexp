@@ -7,18 +7,21 @@ open Core_kernel
 open Js_of_ocaml
 open Types
 
-let create ?(x=0.0) ?y ~width ~height =
+let create ?x ?y ~width ~height hole =
   let doc = Dom_svg.document in
-  let root_layer = new Widget.group ~x ?y ~width ~height doc in
-  let toolbox = Toolbox.create ~x ?y ~width:150.0 ~height in
+  let root_layer = new Widget.group ?x ?y ~width ~height doc in
+  let toolbox = Toolbox.create ?x ?y ~width:150.0 ~height in
   root_layer#rect_style##.fill := Js.string "grey";
   ignore (root_layer#element##appendChild
             (toolbox.toolbox_group#element :> Dom.node Js.t));
+  ignore (root_layer#element##appendChild
+            (hole.hole_group#element :> Dom.node Js.t));
   { root_layer
   ; picked_up_block = None
   ; scripts = Doubly_linked.create ()
   ; drop_candidate = None
-  ; toolbox }
+  ; toolbox
+  ; entry_exists_hole = Hole hole }
 
 let add_block ctx term =
   term.block.parent <-
@@ -31,6 +34,9 @@ let render ctx =
   (* Render the block upon entry into DOM rather than construction so that
      text.getComputedTextLength() works correctly *)
   Toolbox.render ctx.toolbox;
+  let Hole hole = ctx.entry_exists_hole in
+  hole.hole_group#set_x (ctx.toolbox.toolbox_group#width);
+  Hole.Placeholder.render hole.hole_placeholder;
   Doubly_linked.iter ctx.scripts ~f:(fun (Term term) ->
       ignore (Block.render_block_and_children term.block)
     )

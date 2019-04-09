@@ -3,6 +3,7 @@
    This Source Code Form is subject to the terms of the Mozilla Public
    License, v. 2.0. If a copy of the MPL was not distributed with this
    file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
+
 open Core_kernel
 open Js_of_ocaml
 
@@ -20,8 +21,8 @@ open Js_of_ocaml
     (This library is for creating block interfaces, i.e. syntaxes, not
     semantics!) *)
 
-(** Because these types mutually depend on each other, they must be defined in a
-    single file. *)
+(* Because these types mutually depend on each other, they must be defined in a
+   single file. *)
 
 type 'symbols ctx = {
     root_layer : Widget.group;
@@ -29,6 +30,7 @@ type 'symbols ctx = {
     scripts : 'symbols exists_term Doubly_linked.t;
     mutable drop_candidate : 'symbols exists_hole option;
     toolbox : 'symbols toolbox;
+    entry_exists_hole : 'symbols exists_hole;
   }
 
 and 'symbols block = {
@@ -53,7 +55,6 @@ and 'symbols parent =
     the library to work with
     {{: https://en.wikipedia.org/wiki/Many-sorted_logic} many-sorted logics} in
     a type-safe manner. *)
-
 and ('symbols, 'sort) term = {
     block : 'symbols block;
     term : 'sort;
@@ -69,14 +70,15 @@ and 'symbols exists_term = Term : ('symbols, 'sort) term -> 'symbols exists_term
 and ('symbols, 'sort) hole = {
     mutable hole_term : ('symbols, 'sort) term option;
     term_of_symbol : 'symbols -> ('symbols, 'sort) term option;
-      (** A conversion function that "unpacks" the symbol into a term belongin
+      (** A conversion function that "unpacks" the symbol into a term belonging
           to a specific sort. *)
     hole_placeholder : placeholder;
+    hole_group : Widget.group;
     mutable hole_parent : 'symbols block option;
   }
 
 and 'symbols exists_hole =
-  Hole : ('symbols, 'sort) hole -> 'symbols exists_hole
+  Hole : ('symbols, _) hole -> 'symbols exists_hole
 
 and 'symbols item =
   | Child of 'symbols exists_hole
@@ -138,6 +140,11 @@ and ('symbols, 'sort, 'arity) syntax = {
 
 and ('symbols, 'sort) exists_syntax =
   Syntax : ('symbols, 'sort, _) syntax -> ('symbols, 'sort) exists_syntax
+
+type ('symbols, 'sort) t = {
+    workspace : 'symbols ctx;
+    hole : ('symbols, 'sort) hole;
+  }
 
 let set_style widget palette_data =
   let g's_style = widget#element##.style in
