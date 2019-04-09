@@ -10,7 +10,7 @@ open Types
 
 let bar_height = 20.0
 
-let render palette =
+let render ((Palette t) as palette) =
   let rec f acc (Palette t) =
     t.palette_y_offset <- acc;
     let width, cols =
@@ -44,7 +44,7 @@ let render palette =
     t.palette_root#set_width width;
     t.palette_root#set_height t's_height;
     width, t's_height +. next's_height
-  in f bar_height palette
+  in f t.palette_y_offset palette
 
 let create workspace next_palette palette_data syntactic_forms =
   let toolbox = workspace.toolbox in
@@ -74,7 +74,7 @@ let create workspace next_palette palette_data syntactic_forms =
     ; palette_text
     ; palette_bar
     ; palette_group
-    ; palette_y_offset = 0.0
+    ; palette_y_offset = bar_height
     ; palette_collapsed = false
     ; syntactic_forms
     ; next_palette } in
