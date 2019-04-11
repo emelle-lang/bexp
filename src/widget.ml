@@ -189,6 +189,8 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") set_str doc = object
 
   method element = foreign_obj
 
+  method input = input
+
   method x = length_of_anim foreign_obj##.x
 
   method set_x = set_x foreign_obj
@@ -210,7 +212,7 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") set_str doc = object
           let rect = input##getBoundingClientRect in
           (* Why would the width be undefined...? MDN doesn't note anything
              like that... *)
-          set_width foreign_obj (Js.Optdef.get rect##.width (fun() -> 0.0));
+          set_width foreign_obj (Js.Optdef.get rect##.width (fun () -> 0.0));
           onresize ();
           Js._false
         )

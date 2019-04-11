@@ -39,7 +39,11 @@ let text str =
 
 let text_input ?(str="") set_str =
   let doc = Dom_svg.document in
-  let elem () = new Widget.text_input ~str set_str doc in
+  let elem () =
+    let input = new Widget.text_input ~str set_str doc in
+    input#input##.style##.fontFamily := Js.string "mono";
+    input
+  in
   let text_elem = new Widget.text doc str in
   text_elem#element##.style##.fill := Js.string "black";
   let wrapper = new Widget.wrapper (text_elem :> Widget.t) doc in

@@ -3,6 +3,7 @@
    This Source Code Form is subject to the terms of the Mozilla Public
    License, v. 2.0. If a copy of the MPL was not distributed with this
    file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
+
 open Core_kernel
 open Js_of_ocaml
 open Types
@@ -73,21 +74,6 @@ let render_block_and_parents block =
 
 let append_to_group block child =
   ignore (block.group#element##appendChild (child#element :> Dom.node Js.t))
-
-let remove_from_group block child =
-  ignore (block.group#element##removeChild (child#element :> Dom.node Js.t))
-
-let clear hole =
-  Option.iter hole.hole_term ~f:(fun term ->
-      Option.iter hole.hole_parent ~f:(fun parent ->
-          remove_from_group parent term.block.group
-        )
-    );
-  hole.hole_term <- None;
-  hole.hole_placeholder.placeholder_group#show;
-  match hole.hole_parent with
-  | Some parent -> render_block_and_parents parent
-  | None -> (0.0, 0.0)
 
 let move_to_front block =
   let elem = (block.group#element :> Dom.node Js.t) in
