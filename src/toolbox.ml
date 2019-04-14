@@ -20,7 +20,7 @@ let set_palette toolbox palette =
        (palette.palette_root#element :> Dom.node Js.t))
 
 let render toolbox =
-  Option.iter toolbox.palette ~f:(fun palette ->
-      let width, _ = Palette.render palette in
-      toolbox.toolbox_group#set_width width
+  Option.iter toolbox.palette ~f:(fun ((Palette t) as palette) ->
+      Palette.render palette;
+      toolbox.toolbox_group#set_width t.palette_group#width
     )

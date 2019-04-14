@@ -38,13 +38,19 @@ let render ((Palette t) as palette) =
          next's_width, next's_height
     in
     let width = Float.max next's_width width in
-    t.palette_bar#set_width width;
-    t.palette_group#set_width width;
     t.palette_group#set_height t's_height;
-    t.palette_root#set_width width;
     t.palette_root#set_height t's_height;
     width, t's_height +. next's_height
-  in f t.palette_y_offset palette
+  in
+  let width, _ = f t.palette_y_offset palette in
+  let rec f (Palette t) =
+    t.palette_root#set_width width;
+    t.palette_bar#set_width width;
+    t.palette_group#set_width width;
+    match t.next_palette with
+    | None -> ()
+    | Some p -> f p
+  in f palette
 
 let create workspace next_palette palette_data syntactic_forms =
   let toolbox = workspace.toolbox in
