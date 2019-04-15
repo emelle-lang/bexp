@@ -10,53 +10,62 @@ open Types
 
 let bar_height = 20.0
 
+(** This is only to be run from the root palette, and it is cached after running
+    once. *)
+let compute_dims (Palette t) =
+  if not t.palette_dims_computed then begin
+      t.palette_dims_computed <- true;
+      let rec loop width (Palette t) =
+        let width = Float.max width (t.palette_text#width) in
+        let width, cols =
+          List.fold t.syntactic_forms ~init:(width, 1)
+            ~f:(fun (width, cols) (Syntax syn) ->
+              syn.syn_group#set_y (Float.of_int cols *. Block.col_height);
+              let (width', cols') = Syntax.render syn in
+              (Float.max width width', cols + cols' + 1)
+            ) in
+        let height = bar_height +. Float.of_int cols *. Block.col_height in
+        t.palette_expanded_height <- height;
+        match t.next_palette with
+        | None -> width
+        | Some parent -> loop width parent
+      in
+      let width = loop 0.0 (Palette t) in
+      let rec loop (Palette t) =
+        t.palette_root#set_width width;
+        t.palette_bar#set_width width;
+        t.palette_group#set_width width;
+        match t.next_palette with
+        | None -> ()
+        | Some parent -> loop parent
+      in loop (Palette t)
+    end
+
 let render ((Palette t) as palette) =
   let rec f acc (Palette t) =
     t.palette_y_offset <- acc;
-    let width, cols =
-      List.fold t.syntactic_forms ~init:(t.palette_text#width, 1)
-        ~f:(fun (width, cols) (Syntax syn) ->
-          syn.syn_group#set_y (Float.of_int cols *. Block.col_height);
-          let (width', cols') = Syntax.render syn in
-          (Float.max width width', cols + cols' + 1)
-        ) in
-    let t's_height =
+    let height =
       if t.palette_collapsed then (
         t.palette_group#hide;
         bar_height
       ) else (
         t.palette_group#show;
-        bar_height +. Float.of_int cols *. Block.col_height
+        t.palette_expanded_height
       ) in
-    let next's_width, next's_height =
-      match t.next_palette with
-      | None -> 0.0, 0.0
-      | Some next ->
-         let Palette next' = next in
-         let next's_width, next's_height = f (acc +. t's_height) next in
-         next'.palette_root#set_y t's_height;
-         next's_width, next's_height
-    in
-    let width = Float.max next's_width width in
-    t.palette_group#set_height t's_height;
-    t.palette_root#set_height t's_height;
-    width, t's_height +. next's_height
-  in
-  let width, _ = f t.palette_y_offset palette in
-  let rec f (Palette t) =
-    t.palette_root#set_width width;
-    t.palette_bar#set_width width;
-    t.palette_group#set_width width;
+    t.palette_group#set_height height;
     match t.next_palette with
     | None -> ()
-    | Some p -> f p
-  in f palette
+    | Some next ->
+       let Palette next' = next in
+       next'.palette_root#set_y height;
+       f (acc +. height) next
+  in
+  f t.palette_y_offset palette
 
 let create workspace next_palette palette_data syntactic_forms =
-  let toolbox = workspace.toolbox in
   let doc = Dom_svg.document in
-  let width = toolbox.toolbox_group#width in
-  let height = toolbox.toolbox_group#height in
+  let width = 0.0 in
+  let height = 0.0 in
 
   let palette_text = new Widget.text doc palette_data.palette_name in
   palette_text#element##.style##.fill := Js.string "white";
@@ -82,6 +91,8 @@ let create workspace next_palette palette_data syntactic_forms =
     ; palette_group
     ; palette_y_offset = bar_height
     ; palette_collapsed = false
+    ; palette_expanded_height = 0.0
+    ; palette_dims_computed = false
     ; syntactic_forms
     ; next_palette } in
 

@@ -14,13 +14,15 @@ let create ?x ?y ~width ~height  =
   ; palette = None }
 
 let set_palette toolbox palette =
-  toolbox.palette <- Some (Palette palette);
+  let p = Palette palette in
+  toolbox.palette <- Some p;
   ignore
     (toolbox.toolbox_group#element##appendChild
        (palette.palette_root#element :> Dom.node Js.t))
 
 let render toolbox =
   Option.iter toolbox.palette ~f:(fun ((Palette t) as palette) ->
+      Palette.compute_dims palette;
       Palette.render palette;
       toolbox.toolbox_group#set_width t.palette_group#width
     )
