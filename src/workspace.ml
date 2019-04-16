@@ -38,5 +38,5 @@ let render ctx =
   hole.hole_group#set_x (ctx.toolbox.toolbox_group#width);
   Hole.Placeholder.render hole.hole_placeholder;
   Doubly_linked.iter ctx.scripts ~f:(fun (Term term) ->
-      ignore (Block.render_block_and_children term.block)
+      ignore (Block.render term.block)
     )

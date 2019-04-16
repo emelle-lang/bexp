@@ -10,9 +10,7 @@ open Types
 
 let col_height = 25.0
 
-(* Returns the dimensions of the rendered block, which are used in its
-   recursive calls when handling child blocks that have not been rendered yet *)
-let rec render_block_and_children block : float * int =
+let rec render block : float * int =
   let rec loop max_width x y = function
     | [] -> max_width, y
     | item::items ->
@@ -31,9 +29,10 @@ let rec render_block_and_children block : float * int =
                Hole.Placeholder.render hole_placeholder;
                x +. hole_placeholder.placeholder_group#width, y
             | Some term ->
-               let (dx, dy) = match term.block.dim with
+               (* Check if dimensions have been cached *)
+               let dx, dy = match term.block.dim with
                  | Some dim -> dim
-                 | None -> render_block_and_children term.block
+                 | None -> render term.block
                in (x +. dx, y + dy)
        in
        let max_width = Float.max max_width x in
@@ -44,6 +43,7 @@ let rec render_block_and_children block : float * int =
   in
   block.group#set_width width;
   block.group#set_height (Float.of_int (newline_count + 1) *. col_height);
+  (* Cache dimensions *)
   block.dim <- Some dim;
   dim
 
@@ -56,20 +56,24 @@ let rec render_block_and_children block : float * int =
    converted from relative to the parent block to relative to the editor, so
    this function does the work of accumulating the offset during the process
    of walking down the ancestors. *)
-let render_block_and_parents block =
+let rerender_root block =
   let rec go x y block =
-    ignore (render_block_and_children block);
+    (* Invalidate cached dimensions *)
+    block.dim <- None;
     match block.parent with
     | Hole_parent (Hole hole) ->
        let x = x +. hole.hole_group#x in
        let y = y +. hole.hole_group#y in
        begin match hole.hole_parent with
        | Some parent -> go x y parent
-       | None -> (x, y)
+       | None -> (block, x, y)
        end
-    | Root _ -> (block.group#x, block.group#y)
-    | _ -> (0.0, 0.0)
-  in go 0.0 0.0 block
+    | Root _ -> (block, block.group#x +. x, block.group#y +. y)
+    | Picked_up | Unattached -> (block, x, y)
+  in
+  let root, x, y = go 0.0 0.0 block in
+  ignore (render root);
+  x, y
 
 let append_to_group block child =
   ignore (block.group#element##appendChild (child#element :> Dom.node Js.t))
@@ -191,7 +195,7 @@ let drop ((Term term) as t) =
        Hole.set_term hole term ~none:f ~some:(fun term ->
            term.block.group#set_x 0.0;
            term.block.group#set_y 0.0;
-           ignore (render_block_and_parents term.block)
+           ignore (rerender_root term.block)
          )
 
 let begin_drag ((Term term) as t) ev =
@@ -224,9 +228,10 @@ let pick_up ((Term term) as t) ev =
   begin match block.parent with
   | Hole_parent (Hole hole) ->
      Hole.clear hole;
-     let (x, y) = match hole.hole_parent with
-       | Some parent -> render_block_and_parents parent
-       | None -> (0.0, 0.0) in
+     let x, y = match hole.hole_parent with
+       | Some parent -> rerender_root parent
+       | None -> 0.0, 0.0
+     in
      block.group#set_x (hole.hole_group#x +.x);
      block.group#set_y (hole.hole_group#y +.y)
   | Root iterator ->

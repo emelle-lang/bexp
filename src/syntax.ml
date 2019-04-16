@@ -72,7 +72,7 @@ let run symbol_of_term ?x ?y ctx syntax =
       | Widget widget ->
          (* If the widget is ever resized, re-render the block *)
          widget#set_onresize (fun () ->
-             ignore (Block.render_block_and_parents block.block)
+             ignore (Block.rerender_root block.block)
            )
       | _ -> ()
     );

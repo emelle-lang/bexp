@@ -117,7 +117,7 @@ let create workspace next_palette palette_data syntactic_forms =
               (workspace.root_layer#element##appendChild
                  (term.block.group#element :> Dom.node Js.t));
             Block.begin_drag (Term term) ev;
-            ignore (Block.render_block_and_children term.block);
+            ignore (Block.render term.block);
             Js._false
           );
       palette_group#add_child (syn.syn_group :> Widget.t)
