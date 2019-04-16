@@ -10,7 +10,10 @@ open Js_of_ocaml
 type arith =
   | Add of binop
   | If of if_expr
+  | Let of
+      (string ref * (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole)
   | Num of string ref
+  | Var of string ref
 
 and binop =
   (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole
@@ -77,10 +80,14 @@ let ctx =
   Bexp.create ~x:0.0 ~y:0.0 ~width ~height
     (Bexp.Hole.create get_arith arith_data)
 
+let setter str_ref str =
+  str_ref := str;
+  str
+
 let num_def =
   let open Bexp.Syntax in
   let str_ref = ref "120" in
-  Bexp.Syntax.create [ text_input ~str:"120" (fun str -> str_ref := str; str) ]
+  Bexp.Syntax.create [ text_input ~str:"120" (setter str_ref) ]
     ~create:(fun () -> str_ref)
     ~to_term:(fun args -> Num args)
     ~symbol_of_term:symbol_of_arith
@@ -104,6 +111,19 @@ let if_def =
                        , Bexp.Hole.create get_arith arith_data
                        , Bexp.Hole.create get_arith arith_data ))
     ~to_term:(fun args -> If args)
+    ~symbol_of_term:symbol_of_arith
+
+let let_def =
+  let open Bexp.Syntax in
+  let str_ref = ref "x" in
+  Bexp.Syntax.create
+    [text "let";  text_input ~str:"x" (setter str_ref); text "=";
+     nt (fun (_, x, _) -> x) arith_data; text "in"; newline;
+     nt (fun (_, _, x) -> x) arith_data]
+    ~create:(fun () -> ( str_ref
+                       , Bexp.Hole.create get_arith arith_data
+                       , Bexp.Hole.create get_arith arith_data ))
+    ~to_term:(fun args -> Let args)
     ~symbol_of_term:symbol_of_arith
 
 let eq_def =
@@ -132,7 +152,8 @@ let arith_palette =
     arith_data
     [ Bexp.Syntax num_def
     ; Bexp.Syntax plus_def
-    ; Bexp.Syntax if_def ]
+    ; Bexp.Syntax if_def
+    ; Bexp.Syntax let_def ]
 
 let () =
   Bexp.Toolbox.set_palette ctx.Bexp.workspace.toolbox arith_palette

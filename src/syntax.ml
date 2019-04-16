@@ -79,28 +79,27 @@ let run symbol_of_term ?x ?y ctx syntax =
   block
 
 let render syntax =
-  let horiz_padding = 4.0 in
   let rec loop max_width x y = function
     | [] -> max_width, y
     | item::items ->
        let x, y = match item with
          | Syn_Tab -> x +. 20.0, y
-         | Syn_Newline -> horiz_padding, y + 1
+         | Syn_Newline -> 0.0, y + 1
          | Syn_Widget(widget, _) ->
             widget#set_x x;
             widget#set_y (Float.of_int y *. Block.col_height);
-            x +. widget#width +. horiz_padding, y
+            x +. widget#width, y
          | Syn_Child(hole, _) ->
             hole.placeholder_group#set_x x;
             hole.placeholder_group#set_y (Float.of_int y *. Block.col_height);
             Hole.Placeholder.render hole;
-            x +. hole.placeholder_group#width +. horiz_padding, y
+            x +. hole.placeholder_group#width, y
        in
        let max_width = Float.max max_width x in
        loop max_width x y items
   in
   let (width, height) as dim =
-    loop horiz_padding horiz_padding 0 syntax.syn_items in
+    loop 0.0 0.0 0 syntax.syn_items in
   syntax.syn_group#set_width width;
   syntax.syn_group#set_height
     (Float.of_int (height + 1) *. Block.col_height);

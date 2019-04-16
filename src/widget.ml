@@ -131,6 +131,7 @@ end
 class text ?(x=0.0) ?(y=0.0) doc text = object
   val mutable x = x
   val mutable y = y
+  val padding = 4.0
   val elem =
     let text_elem = Dom_svg.createTextElement doc in
     ((Js.Unsafe.coerce text_elem)
@@ -139,7 +140,7 @@ class text ?(x=0.0) ?(y=0.0) doc text = object
     text_elem
 
   initializer
-    set_x elem x;
+    set_x elem (x +. padding);
     set_y elem (y +. 15.0)
 
   method element = elem
@@ -148,7 +149,7 @@ class text ?(x=0.0) ?(y=0.0) doc text = object
 
   method set_x x' =
     x <- x';
-    set_x elem x
+    set_x elem (x +. padding)
 
   method y = y
 
@@ -156,7 +157,7 @@ class text ?(x=0.0) ?(y=0.0) doc text = object
     y <- y';
     set_y elem (y +. 15.0)
 
-  method width = elem##getComputedTextLength
+  method width = elem##getComputedTextLength +. (padding *. 2.0)
 
   method set_onresize (_ : unit -> unit) = ()
 end

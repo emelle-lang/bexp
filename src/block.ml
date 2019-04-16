@@ -13,35 +13,34 @@ let col_height = 25.0
 (* Returns the dimensions of the rendered block, which are used in its
    recursive calls when handling child blocks that have not been rendered yet *)
 let rec render_block_and_children block : float * int =
-  let horiz_padding = 4.0 in
   let rec loop max_width x y = function
     | [] -> max_width, y
     | item::items ->
        let x, y = match item with
          | Tab -> x +. 20.0, y
-         | Newline -> horiz_padding, y + 1
+         | Newline -> 0.0, y + 1
          | Widget widget ->
             widget#set_x x;
             widget#set_y (Float.of_int y *. col_height);
-            x +. widget#width +. horiz_padding, y
+            x +. widget#width, y
          | Child (Hole { hole_term; hole_group; hole_placeholder; _ }) ->
             hole_group#set_x x;
             hole_group#set_y (Float.of_int y *. col_height);
             match hole_term with
             | None ->
                Hole.Placeholder.render hole_placeholder;
-               x +. hole_placeholder.placeholder_group#width +. horiz_padding, y
+               x +. hole_placeholder.placeholder_group#width, y
             | Some term ->
                let (dx, dy) = match term.block.dim with
                  | Some dim -> dim
                  | None -> render_block_and_children term.block
-               in (x +. dx +. horiz_padding, y + dy)
+               in (x +. dx, y + dy)
        in
        let max_width = Float.max max_width x in
        loop max_width x y items
   in
   let (width, newline_count) as dim =
-    loop horiz_padding horiz_padding 0 block.items
+    loop 0.0 0.0 0 block.items
   in
   block.group#set_width width;
   block.group#set_height (Float.of_int (newline_count + 1) *. col_height);
