@@ -22,7 +22,7 @@ let compute_dims (Palette t) =
             ~f:(fun (width, cols) (Syntax syn) ->
               syn.syn_group#set_y (Float.of_int cols *. Block.col_height);
               let (width', cols') = Syntax.render syn in
-              (Float.max width width', cols + cols' + 1)
+              (Float.max width width', cols + cols' + 2)
             ) in
         let height = bar_height +. Float.of_int cols *. Block.col_height in
         t.palette_expanded_height <- height;
