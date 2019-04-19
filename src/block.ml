@@ -263,7 +263,7 @@ let create ?(x=0.0) ?(y=0.0) symbol_of_term ctx term items =
   ignore (
       Dom.addEventListener
         block.group#element
-        (Dom_html.Event.mousedown)
+        Dom_html.Event.mousedown
         (Dom.handler (fun ev ->
              pick_up (Term term) ev;
              Dom_html.stopPropagation ev;

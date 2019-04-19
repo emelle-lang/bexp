@@ -10,6 +10,9 @@ open Types
 
 let bar_height = 20.0
 
+let left_padding = 10.0
+let right_padding = 50.0
+
 (** This is only to be run from the root palette, and it is cached after running
     once. *)
 let compute_dims (Palette t) =
@@ -20,6 +23,7 @@ let compute_dims (Palette t) =
         let width, cols =
           List.fold t.syntactic_forms ~init:(width, 1)
             ~f:(fun (width, cols) (Syntax syn) ->
+              syn.syn_group#set_x left_padding;
               syn.syn_group#set_y (Float.of_int cols *. Block.col_height);
               let (width', cols') = Syntax.render syn in
               (Float.max width width', cols + cols' + 2)
@@ -30,7 +34,7 @@ let compute_dims (Palette t) =
         | None -> width
         | Some parent -> loop width parent
       in
-      let width = loop 0.0 (Palette t) in
+      let width = loop 0.0 (Palette t) +. left_padding +. right_padding in
       let rec loop (Palette t) =
         t.palette_root#set_width width;
         t.palette_bar#set_width width;
@@ -41,6 +45,7 @@ let compute_dims (Palette t) =
       in loop (Palette t)
     end
 
+(** Returns the palette height, including the next palette *)
 let render ((Palette t) as palette) =
   let rec f acc (Palette t) =
     t.palette_y_offset <- acc;
@@ -54,7 +59,7 @@ let render ((Palette t) as palette) =
       ) in
     t.palette_group#set_height height;
     match t.next_palette with
-    | None -> ()
+    | None -> acc +.height
     | Some next ->
        let Palette next' = next in
        next'.palette_root#set_y height;
@@ -93,6 +98,7 @@ let create workspace next_palette palette_data syntactic_forms =
     ; palette_collapsed = false
     ; palette_expanded_height = 0.0
     ; palette_dims_computed = false
+    ; palette_toolbox = None
     ; syntactic_forms
     ; next_palette } in
 
@@ -107,8 +113,14 @@ let create workspace next_palette palette_data syntactic_forms =
       set_style syn.syn_group palette_data;
       syn.syn_group#element##.onmousedown :=
         Dom.handler (fun ev ->
-            let x = syn.syn_group#x in
-            let y = syn.syn_group#y +. palette.palette_y_offset in
+            let toolbox_off_x, toolbox_off_y  =
+              match palette.palette_toolbox with
+              | None -> 0.0, 0.0
+              | Some toolbox -> toolbox.toolbox_group#x, toolbox.toolbox_group#y
+            in
+            let x = syn.syn_group#x +. toolbox_off_x in
+            let y =
+              syn.syn_group#y +. palette.palette_y_offset +. toolbox_off_y in
             let term =
               Syntax.run syn.symbol_of_term_template ~x ~y workspace syn
             in

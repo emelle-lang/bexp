@@ -87,6 +87,7 @@ and 'symbols item =
   | Tab
 
 and 'symbols toolbox = {
+    toolbox_scrollbox : Widget.scrollbox;
     toolbox_group : Widget.group;
     mutable palette : 'symbols exists_palette option;
   }
@@ -107,6 +108,7 @@ and ('symbols, 'sort) palette = {
     mutable palette_y_offset : float;
     mutable palette_expanded_height : float;
     mutable palette_dims_computed : bool;
+    mutable palette_toolbox : 'symbols toolbox option;
     next_palette : 'symbols exists_palette option;
       (** A linked-list style "pointer" to the next palette *)
   }

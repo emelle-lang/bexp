@@ -9,8 +9,10 @@ open Types
 
 let create ?x ?y ~width ~height  =
   let doc = Dom_svg.document in
-  let group = new Widget.group ?x ?y ~width ~height doc in
-  { toolbox_group = group
+  let group = new Widget.group ~width ~height doc in
+  let scrollbox = new Widget.scrollbox ?x ?y ~height (group :> Widget.t) doc in
+  { toolbox_scrollbox = scrollbox
+  ; toolbox_group = group
   ; palette = None }
 
 let set_palette toolbox palette =
@@ -18,11 +20,19 @@ let set_palette toolbox palette =
   toolbox.palette <- Some p;
   ignore
     (toolbox.toolbox_group#element##appendChild
-       (palette.palette_root#element :> Dom.node Js.t))
+       (palette.palette_root#element :> Dom.node Js.t));
+  let rec loop (Palette palette) =
+    palette.palette_toolbox <- Some toolbox;
+    match palette.next_palette with
+    | None -> ()
+    | Some palette -> loop palette in
+  loop p
 
 let render toolbox =
   Option.iter toolbox.palette ~f:(fun ((Palette t) as palette) ->
       Palette.compute_dims palette;
-      Palette.render palette;
-      toolbox.toolbox_group#set_width t.palette_group#width
+      let height = Palette.render palette in
+      toolbox.toolbox_group#set_width t.palette_group#width;
+      toolbox.toolbox_group#set_height height;
+      toolbox.toolbox_scrollbox#render
     )

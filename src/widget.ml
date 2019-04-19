@@ -11,6 +11,7 @@ class type t = object
   method set_x : float -> unit
   method set_y : float -> unit
   method width : float
+  method height : float
   method set_onresize : (unit -> unit) -> unit
 end
 
@@ -159,6 +160,8 @@ class text ?(x=0.0) ?(y=0.0) doc text = object
 
   method width = elem##getComputedTextLength +. (padding *. 2.0)
 
+  method height = 20.0
+
   method set_onresize (_ : unit -> unit) = ()
 end
 
@@ -209,7 +212,8 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") set_str doc = object
       Dom.handler (fun _ ->
           let str = set_str (Js.to_string input##.value) in
           let char_c = String.length str in
-          set_float_prop input "size" (Float.of_int char_c);
+          let sz = if char_c > 0 then char_c else 1 in
+          set_float_prop input "size" (Float.of_int sz);
           let rect = input##getBoundingClientRect in
           (* Why would the width be undefined...? MDN doesn't note anything
              like that... *)
@@ -228,8 +232,7 @@ class ['a] wrapper ?x ?y (ch : (#t as 'a)) doc = object
 
   initializer
     group#add_child child;
-    (* Hack for my purposes; how to make this more modular? *)
-    group#set_height 20.0
+    group#set_height child#height
 
   method element = group#element
 
@@ -245,9 +248,108 @@ class ['a] wrapper ?x ?y (ch : (#t as 'a)) doc = object
     group#set_width child#width;
     child#width
 
+  method height =
+    group#set_height child#height;
+    child#height
+
   method set_onresize = child#set_onresize
 
   method style = group#rect_style
 
   method wrapped = child
+end
+
+class scrollbar ?x ?y ?(rx=2.0) ?(ry=rx) ?(width=10.0) ~box_height widget doc =
+object(self)
+  val rect = new rect ?x ?y ~rx ~ry ~width doc
+  val box_height = box_height
+  val wrapped = widget
+
+  initializer
+    rect#element##.style##.fill := Js.string "green";
+    ignore (
+        Dom.addEventListener rect#element Dom_html.Event.mousedown
+          (Dom.handler (fun ev ->
+               self#begin_scroll ev;
+               Js._false
+          )) Js._false
+      )
+
+  method begin_scroll ev =
+    let init_y = self#y in
+    let init_client_y = ev##.clientY in
+    rect#element##.style##.fill := Js.string "blue";
+    let doc = Dom_html.document in
+    doc##.onmousemove :=
+      Dom.handler (fun ev ->
+          rect#set_y (init_y +. (Float.of_int (ev##.clientY - init_client_y)));
+          let bounds = box_height -. rect#height in
+          if Float.compare rect#y bounds = 1 then
+            rect#set_y bounds;
+          (* The above check can make the y position negative, so do the 0
+             check after, not before *)
+          if Float.compare rect#y 0.0 = -1 then
+            rect#set_y 0.0;
+          widget#set_y
+            ((rect#y /. bounds) *. (init_y -. (widget#height -. rect#height)));
+          Js._true
+        );
+    doc##.onmouseup :=
+      Dom.handler (fun _ev ->
+          let pure_handler = Dom.handler (fun _ -> Js._true) in
+          doc##.onmousemove := pure_handler;
+          doc##.onmouseup := pure_handler;
+          rect#element##.style##.fill := Js.string "green";
+          Js._true
+        )
+
+  method render =
+    rect#set_height self#height
+
+  method element = rect#element
+
+  method x = rect#x
+
+  method set_x = rect#set_x
+
+  method y = rect#y
+
+  method set_y = rect#set_y
+
+  method width = rect#width
+
+  method height = box_height /. widget#height *. box_height
+
+  method set_onresize (_ : unit -> unit) = ()
+end
+
+class scrollbox ?x ?y ~height (a : t) doc = object
+  val root = new group ?x ?y ~width:(a#width +. 10.0) ~height doc
+  val wrapped = a
+  val scrollbar = new scrollbar ~x:a#width ~y:0.0 ~box_height:height a doc
+
+  initializer
+    root#add_child wrapped;
+    root#add_child (scrollbar :> t)
+
+  method wrapped = wrapped
+
+  method element = root#element
+
+  method x = root#x
+
+  method set_x = root#set_x
+
+  method y = root#y
+
+  method set_y = root#set_y
+
+  method width = root#width
+
+  method render =
+    root#set_width (wrapped#width +. 10.0);
+    scrollbar#set_x wrapped#width;
+    scrollbar#render
+
+  method height = height
 end
