@@ -124,33 +124,36 @@ let rec find_hovered_hole block block_x block_y x y =
 
 let to_local_coords block =
   let ctx = block.ctx in
-  ( block.group#x -. ctx.script_scrollbox#x -. ctx.script_group#x
-  , block.group#y -. ctx.script_scrollbox#y -. ctx.script_group#y )
+  let group = ctx.script_scrollbox#group in
+  ( block.group#x -. ctx.script_scrollbox#x -. group#x
+  , block.group#y -. ctx.script_scrollbox#y -. group#y )
 
 let to_global_coords block =
   let ctx = block.ctx in
-  ( block.group#x +. ctx.script_scrollbox#x +. ctx.script_group#x
-  , block.group#y +. ctx.script_scrollbox#y +. ctx.script_group#y )
+  let group = ctx.script_scrollbox#group in
+  ( block.group#x +. ctx.script_scrollbox#x +. group#x
+  , block.group#y +. ctx.script_scrollbox#y +. group#y )
 
 let check_bounds block =
   let open Float.O in
-  let group_width = block.ctx.script_group#width in
+  let script_group = block.ctx.script_scrollbox#group in
+  let group_width = script_group#width in
   if block.group#x < 0.0 then
     block.group#set_x 0.0
   else
     let sum = block.group#x +. block.group#width +. 20.0 in
     if sum > group_width then (
-      block.ctx.script_group#set_width sum;
+      script_group#set_width sum;
       block.ctx.script_scrollbox#render
     )
   ;
-  let group_height = block.ctx.script_group#height in
+  let group_height = script_group#height in
   if block.group#y < 0.0 then
     block.group#set_y 0.0
   else
     let sum = block.group#y +. block.group#height +. 20.0 in
     if sum > group_height then (
-      block.ctx.script_group#set_height sum;
+      script_group#set_height sum;
       block.ctx.script_scrollbox#render
     )
 
@@ -210,7 +213,7 @@ let drop ((Term term) as t) =
     let f () =
       block.group#set_x x;
       block.group#set_y y;
-      ignore (block.ctx.script_group#element##appendChild
+      ignore (block.ctx.script_scrollbox#group#element##appendChild
         (block.group#element :> Dom.node Js.t));
       block.parent <- Root (Doubly_linked.insert_first block.ctx.scripts t)
     in
@@ -265,7 +268,7 @@ let pick_up ((Term term) as t) ev =
      block.group#set_x x;
      block.group#set_y y
   | Root iterator ->
-     ignore (block.ctx.script_group#element##removeChild
+     ignore (block.ctx.script_scrollbox#group#element##removeChild
                (block.group#element :> Dom.node Js.t));
      let x, y = to_global_coords block in
      block.group#set_x x;

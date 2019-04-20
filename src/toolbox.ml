@@ -14,7 +14,7 @@ let set_palette toolbox palette =
   let p = Palette palette in
   toolbox.palette <- Some p;
   ignore
-    (toolbox.toolbox_group#element##appendChild
+    (toolbox.toolbox_scrollbox#group#element##appendChild
        (palette.palette_root#element :> Dom.node Js.t));
   let rec loop (Palette palette) =
     palette.palette_toolbox <- Some toolbox;
@@ -27,19 +27,17 @@ let render toolbox =
   Option.iter toolbox.palette ~f:(fun ((Palette t) as palette) ->
       Palette.compute_dims palette;
       let height = Palette.render palette in
-      toolbox.toolbox_group#set_width t.palette_group#width;
-      toolbox.toolbox_group#set_height height;
+      toolbox.toolbox_scrollbox#group#set_width t.palette_group#width;
+      toolbox.toolbox_scrollbox#group#set_height height;
       toolbox.toolbox_scrollbox#render
     )
 
 let create ?x ?y ~width ~height  =
   let doc = Dom_svg.document in
-  let group = new Widget.group ~width ~height doc in
   let scrollbox =
-    new Widget.scrollbox ?x ?y ~width ~height (group :> Widget.t) doc in
+    new Widget.scrollbox ?x ?y ~width ~height doc in
   let toolbox =
     { toolbox_scrollbox = scrollbox
-    ; toolbox_group = group
     ; palette = None } in
   scrollbox#set_on_scroll (fun () -> render toolbox);
   toolbox

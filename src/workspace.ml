@@ -14,22 +14,17 @@ let create ?x ?y ~width ~height hole =
   ignore (root_layer#element##appendChild
             (toolbox.toolbox_scrollbox#element :> Dom.node Js.t));
   let width = width -. (Toolbox.width toolbox) in
-  let script_group = new Widget.group ?y ~width ~height doc in
-  script_group#rect_style##.fill := Js.string "grey";
   let scrollbox =
-    new Widget.scrollbox
-      ~x:(Toolbox.width toolbox)
-      ?y ~width ~height (script_group :> Widget.t) doc in
+    new Widget.scrollbox ~x:(Toolbox.width toolbox) ?y ~width ~height doc in
   ignore (root_layer#element##appendChild
             (scrollbox#element :> Dom.node Js.t));
-  ignore (script_group#element##appendChild
+  ignore (scrollbox#group#element##appendChild
             (hole.hole_group#element :> Dom.node Js.t));
   { root_layer
   ; picked_up_block = None
   ; scripts = Doubly_linked.create ()
   ; drop_candidate = None
   ; toolbox
-  ; script_group
   ; script_scrollbox = scrollbox
   ; entry_exists_hole = Hole hole }
 

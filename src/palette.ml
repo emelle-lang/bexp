@@ -117,7 +117,9 @@ let create workspace next_palette palette_data syntactic_forms =
             let toolbox_off_x, toolbox_off_y  =
               match palette.palette_toolbox with
               | None -> 0.0, 0.0
-              | Some toolbox -> toolbox.toolbox_group#x, toolbox.toolbox_group#y
+              | Some toolbox ->
+                ( toolbox.toolbox_scrollbox#group#x
+                , toolbox.toolbox_scrollbox#group#y )
             in
             let x = syn.syn_group#x +. toolbox_off_x in
             let y =

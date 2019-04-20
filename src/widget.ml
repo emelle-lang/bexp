@@ -324,19 +324,19 @@ module Scrollbar (Axis : ScrollAxis) = struct
       let doc = Dom_html.document in
       doc##.onmousemove :=
         Dom.handler (fun ev ->
-            Axis.set_pos (rect :> widget)
-              (init_pos +.
-                 (Float.of_int (Axis.event_pos ev - init_client_pos)));
             let bounds = box_length -. self#length in
-            if Float.compare (Axis.pos (rect :> widget)) bounds = 1 then
-              Axis.set_pos (rect :> widget) bounds;
-            (* The above check can make the position negative, so do the 0
-             check after, not before *)
-            if Float.compare (Axis.pos (rect :> widget)) 0.0 = -1 then
-              Axis.set_pos (rect :> widget) 0.0;
-            let progress = Axis.pos (rect :> widget) /. bounds in
-            Axis.set_pos widget (0.0 -. progress *. bounds);
-            on_scroll ();
+            if Float.compare bounds 0.0 = 1 then (
+              Axis.set_pos (rect :> widget)
+                (init_pos +.
+                   (Float.of_int (Axis.event_pos ev - init_client_pos)));
+              if Float.compare (Axis.pos (rect :> widget)) bounds = 1 then
+                Axis.set_pos (rect :> widget) bounds;
+              if Float.compare (Axis.pos (rect :> widget)) 0.0 = -1 then
+                Axis.set_pos (rect :> widget) 0.0;
+              let progress = Axis.pos (rect :> widget) /. bounds in
+              Axis.set_pos widget (0.0 -. progress *. bounds);
+              on_scroll ()
+            );
             Js._true
           );
       doc##.onmouseup :=
@@ -383,34 +383,40 @@ let create_vert_scrollbar ~x ~y ?(r=5.0) ?(width=10.0) ~height widget doc =
   let rect = new rect ~x ~y ~rx:r ~ry:r ~width ~height doc in
   new VertScrollbar.t ~rect ~box_length:height widget
 
-class scrollbox ?x ?y ~width ~height (a : t) doc =
+class scrollbox ?x ?y ~width ~height ?(scrollbar_thickness=10.0) doc =
+  let container_group =
+    new group ~x:0.0 ~y:0.0
+      ~width:(width -. scrollbar_thickness)
+      ~height:(height -. scrollbar_thickness) doc
+  in
   object(self)
     val root = new group ?x ?y ~width ~height doc
-    val wrapped = a
+    val container = container_group
     val horiz_scrollbar =
       create_horiz_scrollbar
-        ~y:(height -.10.0) ~x:0.0 ~width:(width -. 10.0) a doc
+        ~y:(height -.10.0) ~x:0.0
+        ~width:(width -. scrollbar_thickness) (container_group :> t) doc
     val vert_scrollbar =
       create_vert_scrollbar
-        ~x:(width -. 10.0) ~y:0.0 ~height:(height -. 10.0) a doc
-    val clip_group = Dom_svg.createG doc
+        ~x:(width -. 10.0) ~y:0.0
+        ~height:(height -. scrollbar_thickness) (container_group :> t) doc
 
     initializer
       let on_scroll () = self#render in
       horiz_scrollbar#set_on_scroll on_scroll;
       vert_scrollbar#set_on_scroll on_scroll;
       (* Hide the parts of the wrapped widget that go out of the box *)
-      set_string_prop clip_group "clip-path" self#clip_path;
-      ignore (clip_group##appendChild (wrapped#element :> Dom.node Js.t));
-      ignore (root#element##appendChild (clip_group :> Dom.node Js.t));
+      set_string_prop container#element "clip-path" self#clip_path;
+      container#rect_style##.fill := Js.string "grey";
+      root#add_child (container :> t);
       root#add_child (horiz_scrollbar :> t);
       root#add_child (vert_scrollbar :> t)
 
     method clip_path =
       (* I think I only need to do this if the SVG was positioned using
          transforms, and if it's something like a rect, it won't work *)
-      let x = 0.0 -. wrapped#x in
-      let y = 0.0 -. wrapped#y in
+      let x = 0.0 -. container#x in
+      let y = 0.0 -. container#y in
       let width = string_of_float (x +. width -. 10.0) in
       let height = string_of_float (y +. height -. 10.0) in
       let x = string_of_float x in
@@ -420,7 +426,7 @@ class scrollbox ?x ?y ~width ~height (a : t) doc =
       ^ width ^ " " ^ height ^ ", "
       ^ x ^ " " ^ height ^ ")"
 
-    method wrapped = wrapped
+    method group = container
 
     method element = root#element
 
@@ -435,7 +441,7 @@ class scrollbox ?x ?y ~width ~height (a : t) doc =
     method width = root#width
 
     method render =
-      set_string_prop clip_group "clip-path" self#clip_path;
+      set_string_prop container#element "clip-path" self#clip_path;
       horiz_scrollbar#render;
       vert_scrollbar#render
 
