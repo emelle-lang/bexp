@@ -8,6 +8,8 @@ open Js_of_ocaml
 
 class type t = object
   method element : Dom_svg.element Js.t
+  method x : float
+  method y : float
   method set_x : float -> unit
   method set_y : float -> unit
   method width : float
@@ -259,97 +261,182 @@ class ['a] wrapper ?x ?y (ch : (#t as 'a)) doc = object
   method wrapped = child
 end
 
-class scrollbar ?x ?y ?(rx=2.0) ?(ry=rx) ?(width=10.0) ~box_height widget doc =
-object(self)
-  val rect = new rect ?x ?y ~rx ~ry ~width doc
-  val box_height = box_height
-  val wrapped = widget
-
-  initializer
-    rect#element##.style##.fill := Js.string "green";
-    ignore (
-        Dom.addEventListener rect#element Dom_html.Event.mousedown
-          (Dom.handler (fun ev ->
-               self#begin_scroll ev;
-               Js._false
-          )) Js._false
-      )
-
-  method begin_scroll ev =
-    let init_y = self#y in
-    let init_client_y = ev##.clientY in
-    rect#element##.style##.fill := Js.string "blue";
-    let doc = Dom_html.document in
-    doc##.onmousemove :=
-      Dom.handler (fun ev ->
-          rect#set_y (init_y +. (Float.of_int (ev##.clientY - init_client_y)));
-          let bounds = box_height -. rect#height in
-          if Float.compare rect#y bounds = 1 then
-            rect#set_y bounds;
-          (* The above check can make the y position negative, so do the 0
-             check after, not before *)
-          if Float.compare rect#y 0.0 = -1 then
-            rect#set_y 0.0;
-          widget#set_y
-            ((rect#y /. bounds) *. (init_y -. (widget#height -. rect#height)));
-          Js._true
-        );
-    doc##.onmouseup :=
-      Dom.handler (fun _ev ->
-          let pure_handler = Dom.handler (fun _ -> Js._true) in
-          doc##.onmousemove := pure_handler;
-          doc##.onmouseup := pure_handler;
-          rect#element##.style##.fill := Js.string "green";
-          Js._true
-        )
-
-  method render =
-    rect#set_height self#height
-
-  method element = rect#element
-
-  method x = rect#x
-
-  method set_x = rect#set_x
-
-  method y = rect#y
-
-  method set_y = rect#set_y
-
-  method width = rect#width
-
-  method height = box_height /. widget#height *. box_height
-
-  method set_onresize (_ : unit -> unit) = ()
+module type ScrollAxis = sig
+  val length : t -> float
+  val set_length : rect -> float -> unit
+  val pos : t -> float
+  val set_pos : t -> float -> unit
+  val event_pos : Dom_html.mouseEvent Js.t -> int
 end
 
-class scrollbox ?x ?y ~height (a : t) doc = object
-  val root = new group ?x ?y ~width:(a#width +. 10.0) ~height doc
-  val wrapped = a
-  val scrollbar = new scrollbar ~x:a#width ~y:0.0 ~box_height:height a doc
+module Horiz : ScrollAxis = struct
+  let length t = t#width
+  let set_length t = t#set_width
+  let pos t = t#x
+  let set_pos t = t#set_x
+  let event_pos ev = ev##.clientX
+end
 
-  initializer
-    root#add_child wrapped;
-    root#add_child (scrollbar :> t)
+module Vert : ScrollAxis = struct
+  let length t = t#height
+  let set_length t = t#set_height
+  let pos t = t#y
+  let set_pos t = t#set_y
+  let event_pos ev = ev##.clientY
+end
 
-  method wrapped = wrapped
+(* Generic scrollbar to be instantiated either by Horiz or Vert to be a
+   horizontal or vertical scrollbar, respectively *)
+module Scrollbar (Axis : ScrollAxis) = struct
+  type widget = t
+  class t ~rect ~box_length widget =
+  object(self)
+    val rect = rect
+    (* The length of the viewport *)
+    val box_length = box_length
+    (* The widget being scrolled *)
+    val wrapped = widget
+    (* Callback called when scrolled *)
+    val mutable on_scroll = fun () -> ()
 
-  method element = root#element
+    initializer
+      rect#element##.style##.fill := Js.string "green";
+      ignore (
+          Dom.addEventListener rect#element Dom_html.Event.mousedown
+            (Dom.handler (fun ev ->
+                 self#begin_scroll ev;
+                 Js._false
+            )) Js._false
+        )
 
-  method x = root#x
+    method set_on_scroll f =
+      on_scroll <- f
 
-  method set_x = root#set_x
+    method begin_scroll ev =
+      let init_pos = Axis.pos (rect :> widget) in
+      let init_client_pos = Axis.event_pos ev in
+      rect#element##.style##.fill := Js.string "blue";
+      let doc = Dom_html.document in
+      doc##.onmousemove :=
+        Dom.handler (fun ev ->
+            Axis.set_pos (rect :> widget)
+              (init_pos +.
+                 (Float.of_int (Axis.event_pos ev - init_client_pos)));
+            let bounds = box_length -. self#length in
+            if Float.compare (Axis.pos (rect :> widget)) bounds = 1 then
+              Axis.set_pos (rect :> widget) bounds;
+            (* The above check can make the position negative, so do the 0
+             check after, not before *)
+            if Float.compare (Axis.pos (rect :> widget)) 0.0 = -1 then
+              Axis.set_pos (rect :> widget) 0.0;
+            let progress = Axis.pos (rect :> widget) /. bounds in
+            Axis.set_pos widget (0.0 -. progress *. bounds);
+            on_scroll ();
+            Js._true
+          );
+      doc##.onmouseup :=
+        Dom.handler (fun _ev ->
+            let pure_handler = Dom.handler (fun _ -> Js._true) in
+            doc##.onmousemove := pure_handler;
+            doc##.onmouseup := pure_handler;
+            rect#element##.style##.fill := Js.string "green";
+            Js._true
+          )
 
-  method y = root#y
+    method render =
+      Axis.set_length rect self#length
 
-  method set_y = root#set_y
+    method element = rect#element
 
-  method width = root#width
+    method x = rect#x
 
-  method render =
-    root#set_width (wrapped#width +. 10.0);
-    scrollbar#set_x wrapped#width;
-    scrollbar#render
+    method set_x = rect#set_x
 
-  method height = height
+    method y = rect#y
+
+    method set_y = rect#set_y
+
+    (* Length of the scrollbar on the axis being scrolled *)
+    method length = box_length /. (Axis.length widget) *. box_length
+
+    method width = rect#width
+
+    method height = rect#height
+
+    method set_onresize (_ : unit -> unit) = ()
+  end
+end
+
+module HorizScrollbar = Scrollbar(Horiz)
+module VertScrollbar = Scrollbar(Vert)
+
+let create_horiz_scrollbar ~x ~y ?(r=5.0) ~width ?(height=10.0) widget doc =
+  let rect = new rect ~x ~y ~rx:r ~ry:r ~width ~height doc in
+  new HorizScrollbar.t ~rect ~box_length:width widget
+
+let create_vert_scrollbar ~x ~y ?(r=5.0) ?(width=10.0) ~height widget doc =
+  let rect = new rect ~x ~y ~rx:r ~ry:r ~width ~height doc in
+  new VertScrollbar.t ~rect ~box_length:height widget
+
+class scrollbox ?x ?y ~width ~height (a : t) doc =
+  object(self)
+    val root = new group ?x ?y ~width ~height doc
+    val wrapped = a
+    val horiz_scrollbar =
+      create_horiz_scrollbar
+        ~y:(height -.10.0) ~x:0.0 ~width:(width -. 10.0) a doc
+    val vert_scrollbar =
+      create_vert_scrollbar
+        ~x:(width -. 10.0) ~y:0.0 ~height:(height -. 10.0) a doc
+    val clip_group = Dom_svg.createG doc
+
+    initializer
+      let on_scroll () = self#render in
+      horiz_scrollbar#set_on_scroll on_scroll;
+      vert_scrollbar#set_on_scroll on_scroll;
+      (* Hide the parts of the wrapped widget that go out of the box *)
+      set_string_prop clip_group "clip-path" self#clip_path;
+      ignore (clip_group##appendChild (wrapped#element :> Dom.node Js.t));
+      ignore (root#element##appendChild (clip_group :> Dom.node Js.t));
+      root#add_child (horiz_scrollbar :> t);
+      root#add_child (vert_scrollbar :> t)
+
+      method clip_path =
+        (* I think I only need to do this if the SVG was positioned using
+           transforms, and if it's something like a rect, it won't work *)
+        let x = 0.0 -. wrapped#x in
+        let y = 0.0 -. wrapped#y in
+        let width = string_of_float (x +. width -. 10.0) in
+        let height = string_of_float (y +. height -. 10.0) in
+        let x = string_of_float x in
+        let y = string_of_float y in
+        "polygon(" ^ x ^ " " ^ y ^ ", "
+        ^ width ^ " " ^ y ^ ", "
+        ^ width ^ " " ^ height ^ ", "
+        ^ x ^ " " ^ height ^ ")"
+
+    method wrapped = wrapped
+
+    method element = root#element
+
+    method x = root#x
+
+    method set_x = root#set_x
+
+    method y = root#y
+
+    method set_y = root#set_y
+
+    method width = root#width
+
+    method render =
+      set_string_prop clip_group "clip-path" self#clip_path;
+      horiz_scrollbar#render;
+      vert_scrollbar#render
+
+    method height = height
+
+    method set_on_scroll f =
+      horiz_scrollbar#set_on_scroll f;
+      vert_scrollbar#set_on_scroll f
 end

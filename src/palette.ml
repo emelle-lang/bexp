@@ -59,13 +59,14 @@ let render ((Palette t) as palette) =
       ) in
     t.palette_group#set_height height;
     match t.next_palette with
-    | None -> acc +.height
+    | None -> acc +. height
     | Some next ->
        let Palette next' = next in
        next'.palette_root#set_y height;
        f (acc +. height) next
   in
-  f t.palette_y_offset palette
+  let end_y = f t.palette_y_offset palette in
+  end_y -. t.palette_y_offset
 
 let create workspace next_palette palette_data syntactic_forms =
   let doc = Dom_svg.document in

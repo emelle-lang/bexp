@@ -7,14 +7,6 @@ open Core_kernel
 open Js_of_ocaml
 open Types
 
-let create ?x ?y ~width ~height  =
-  let doc = Dom_svg.document in
-  let group = new Widget.group ~width ~height doc in
-  let scrollbox = new Widget.scrollbox ?x ?y ~height (group :> Widget.t) doc in
-  { toolbox_scrollbox = scrollbox
-  ; toolbox_group = group
-  ; palette = None }
-
 let set_palette toolbox palette =
   let p = Palette palette in
   toolbox.palette <- Some p;
@@ -36,3 +28,15 @@ let render toolbox =
       toolbox.toolbox_group#set_height height;
       toolbox.toolbox_scrollbox#render
     )
+
+let create ?x ?y ~width ~height  =
+  let doc = Dom_svg.document in
+  let group = new Widget.group ~width ~height doc in
+  let scrollbox =
+    new Widget.scrollbox ?x ?y ~width ~height (group :> Widget.t) doc in
+  let toolbox =
+    { toolbox_scrollbox = scrollbox
+    ; toolbox_group = group
+    ; palette = None } in
+  scrollbox#set_on_scroll (fun () -> render toolbox);
+  toolbox

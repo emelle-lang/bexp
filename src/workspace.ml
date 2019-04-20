@@ -10,7 +10,7 @@ open Types
 let create ?x ?y ~width ~height hole =
   let doc = Dom_svg.document in
   let root_layer = new Widget.group ?x ?y ~width ~height doc in
-  let toolbox = Toolbox.create ?x ?y ~width:150.0 ~height in
+  let toolbox = Toolbox.create ?x ?y ~width:200.0 ~height in
   root_layer#rect_style##.fill := Js.string "grey";
   ignore (root_layer#element##appendChild
             (toolbox.toolbox_scrollbox#element :> Dom.node Js.t));
