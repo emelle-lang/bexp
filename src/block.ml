@@ -182,7 +182,7 @@ let drag term ev x_offset y_offset =
 
 let drop ((Term term) as t) =
   let block = term.block in
-  if block.group#x < block.ctx.toolbox.toolbox_group#width then
+  if block.group#x < block.ctx.toolbox.toolbox_scrollbox#width then
     (* Block is hovering above toolbox, discard *)
     ignore (block.ctx.root_layer#element##removeChild
               (block.group#element :> Dom.node Js.t))
