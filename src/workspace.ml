@@ -11,16 +11,26 @@ let create ?x ?y ~width ~height hole =
   let doc = Dom_svg.document in
   let root_layer = new Widget.group ?x ?y ~width ~height doc in
   let toolbox = Toolbox.create ?x ?y ~width:200.0 ~height in
-  root_layer#rect_style##.fill := Js.string "grey";
   ignore (root_layer#element##appendChild
             (toolbox.toolbox_scrollbox#element :> Dom.node Js.t));
+  let width = width -. (Toolbox.width toolbox) in
+  let script_group = new Widget.group ?y ~width ~height doc in
+  script_group#rect_style##.fill := Js.string "grey";
+  let scrollbox =
+    new Widget.scrollbox
+      ~x:(Toolbox.width toolbox)
+      ?y ~width ~height (script_group :> Widget.t) doc in
   ignore (root_layer#element##appendChild
+            (scrollbox#element :> Dom.node Js.t));
+  ignore (script_group#element##appendChild
             (hole.hole_group#element :> Dom.node Js.t));
   { root_layer
   ; picked_up_block = None
   ; scripts = Doubly_linked.create ()
   ; drop_candidate = None
   ; toolbox
+  ; script_group
+  ; script_scrollbox = scrollbox
   ; entry_exists_hole = Hole hole }
 
 let add_block ctx term =
@@ -35,7 +45,6 @@ let render ctx =
      text.getComputedTextLength() works correctly *)
   Toolbox.render ctx.toolbox;
   let Hole hole = ctx.entry_exists_hole in
-  hole.hole_group#set_x (ctx.toolbox.toolbox_scrollbox#width);
   Hole.Placeholder.render hole.hole_placeholder;
   Doubly_linked.iter ctx.scripts ~f:(fun (Term term) ->
       ignore (Block.render term.block)

@@ -289,6 +289,11 @@ end
    horizontal or vertical scrollbar, respectively *)
 module Scrollbar (Axis : ScrollAxis) = struct
   type widget = t
+
+  let color = Js.string "#c0c0c0"
+
+  let on_scroll_color = Js.string "#a0a0a0"
+
   class t ~rect ~box_length widget =
   object(self)
     val rect = rect
@@ -300,7 +305,7 @@ module Scrollbar (Axis : ScrollAxis) = struct
     val mutable on_scroll = fun () -> ()
 
     initializer
-      rect#element##.style##.fill := Js.string "green";
+      rect#element##.style##.fill := color;
       ignore (
           Dom.addEventListener rect#element Dom_html.Event.mousedown
             (Dom.handler (fun ev ->
@@ -315,7 +320,7 @@ module Scrollbar (Axis : ScrollAxis) = struct
     method begin_scroll ev =
       let init_pos = Axis.pos (rect :> widget) in
       let init_client_pos = Axis.event_pos ev in
-      rect#element##.style##.fill := Js.string "blue";
+      rect#element##.style##.fill := on_scroll_color;
       let doc = Dom_html.document in
       doc##.onmousemove :=
         Dom.handler (fun ev ->
@@ -339,7 +344,7 @@ module Scrollbar (Axis : ScrollAxis) = struct
             let pure_handler = Dom.handler (fun _ -> Js._true) in
             doc##.onmousemove := pure_handler;
             doc##.onmouseup := pure_handler;
-            rect#element##.style##.fill := Js.string "green";
+            rect#element##.style##.fill := color;
             Js._true
           )
 
@@ -401,19 +406,19 @@ class scrollbox ?x ?y ~width ~height (a : t) doc =
       root#add_child (horiz_scrollbar :> t);
       root#add_child (vert_scrollbar :> t)
 
-      method clip_path =
-        (* I think I only need to do this if the SVG was positioned using
-           transforms, and if it's something like a rect, it won't work *)
-        let x = 0.0 -. wrapped#x in
-        let y = 0.0 -. wrapped#y in
-        let width = string_of_float (x +. width -. 10.0) in
-        let height = string_of_float (y +. height -. 10.0) in
-        let x = string_of_float x in
-        let y = string_of_float y in
-        "polygon(" ^ x ^ " " ^ y ^ ", "
-        ^ width ^ " " ^ y ^ ", "
-        ^ width ^ " " ^ height ^ ", "
-        ^ x ^ " " ^ height ^ ")"
+    method clip_path =
+      (* I think I only need to do this if the SVG was positioned using
+         transforms, and if it's something like a rect, it won't work *)
+      let x = 0.0 -. wrapped#x in
+      let y = 0.0 -. wrapped#y in
+      let width = string_of_float (x +. width -. 10.0) in
+      let height = string_of_float (y +. height -. 10.0) in
+      let x = string_of_float x in
+      let y = string_of_float y in
+      "polygon(" ^ x ^ " " ^ y ^ ", "
+      ^ width ^ " " ^ y ^ ", "
+      ^ width ^ " " ^ height ^ ", "
+      ^ x ^ " " ^ height ^ ")"
 
     method wrapped = wrapped
 

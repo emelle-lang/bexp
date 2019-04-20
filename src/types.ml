@@ -26,6 +26,8 @@ open Js_of_ocaml
 
 type 'symbols ctx = {
     root_layer : Widget.group;
+    script_group : Widget.group;
+    script_scrollbox : Widget.scrollbox;
     mutable picked_up_block : 'symbols exists_term option;
     scripts : 'symbols exists_term Doubly_linked.t;
     mutable drop_candidate : 'symbols exists_hole option;

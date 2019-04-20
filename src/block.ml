@@ -122,19 +122,37 @@ let rec find_hovered_hole block block_x block_y x y =
       else None
     )
 
+let to_local_coords block =
+  let ctx = block.ctx in
+  ( block.group#x -. ctx.script_scrollbox#x -. ctx.script_group#x
+  , block.group#y -. ctx.script_scrollbox#y -. ctx.script_group#y )
+
+let to_global_coords block =
+  let ctx = block.ctx in
+  ( block.group#x +. ctx.script_scrollbox#x +. ctx.script_group#x
+  , block.group#y +. ctx.script_scrollbox#y +. ctx.script_group#y )
+
 let check_bounds block =
   let open Float.O in
-  let svg_width = block.ctx.root_layer#width in
+  let group_width = block.ctx.script_group#width in
   if block.group#x < 0.0 then
     block.group#set_x 0.0
-  else if block.group#x +. block.group#width > svg_width then
-    block.group#set_x (svg_width -. block.group#width)
+  else
+    let sum = block.group#x +. block.group#width +. 20.0 in
+    if sum > group_width then (
+      block.ctx.script_group#set_width sum;
+      block.ctx.script_scrollbox#render
+    )
   ;
-  let svg_height = block.ctx.root_layer#height in
+  let group_height = block.ctx.script_group#height in
   if block.group#y < 0.0 then
     block.group#set_y 0.0
-  else if block.group#y +. block.group#height > svg_height then
-    block.group#set_y (svg_height -. block.group#height)
+  else
+    let sum = block.group#y +. block.group#height +. 20.0 in
+    if sum > group_height then (
+      block.ctx.script_group#set_height sum;
+      block.ctx.script_scrollbox#render
+    )
 
 let drag term ev x_offset y_offset =
   let block = term.block in
@@ -143,6 +161,7 @@ let drag term ev x_offset y_offset =
   block.group#set_x x;
   block.group#set_y y;
   check_bounds block;
+  let x, y = to_local_coords block in
   Option.iter block.ctx.drop_candidate ~f:(fun (Hole hole) ->
       Hole.unhighlight hole
     );
@@ -182,13 +201,19 @@ let drag term ev x_offset y_offset =
 
 let drop ((Term term) as t) =
   let block = term.block in
-  if block.group#x < block.ctx.toolbox.toolbox_scrollbox#width then
+  let x, y = to_local_coords block in
+  if x < 0.0 then
     (* Block is hovering above toolbox, discard *)
     ignore (block.ctx.root_layer#element##removeChild
               (block.group#element :> Dom.node Js.t))
   else
     let f () =
-      block.parent <- Root (Doubly_linked.insert_first block.ctx.scripts t) in
+      block.group#set_x x;
+      block.group#set_y y;
+      ignore (block.ctx.script_group#element##appendChild
+        (block.group#element :> Dom.node Js.t));
+      block.parent <- Root (Doubly_linked.insert_first block.ctx.scripts t)
+    in
     match block.ctx.drop_candidate with
     | None -> f ()
     | Some (Hole hole) ->
@@ -232,9 +257,21 @@ let pick_up ((Term term) as t) ev =
        | Some parent -> rerender_root parent
        | None -> 0.0, 0.0
      in
-     block.group#set_x (hole.hole_group#x +.x);
-     block.group#set_y (hole.hole_group#y +.y)
+     block.group#set_x (hole.hole_group#x +. x);
+     block.group#set_y (hole.hole_group#y +.y);
+     let x, y =
+       to_global_coords block
+     in
+     block.group#set_x x;
+     block.group#set_y y
   | Root iterator ->
+     ignore (block.ctx.script_group#element##removeChild
+               (block.group#element :> Dom.node Js.t));
+     let x, y = to_global_coords block in
+     block.group#set_x x;
+     block.group#set_y y;
+     ignore (block.ctx.root_layer#element##appendChild
+               (block.group#element :> Dom.node Js.t));
      Doubly_linked.remove block.ctx.scripts iterator
   | _ -> ()
   end;
