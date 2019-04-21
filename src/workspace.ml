@@ -28,13 +28,6 @@ let create ?x ?y ~width ~height hole =
   ; script_scrollbox = scrollbox
   ; entry_exists_hole = Hole hole }
 
-let add_block ctx term =
-  term.block.parent <-
-    Root (Doubly_linked.insert_first ctx.scripts (Term term));
-  ignore
-    (ctx.root_layer#element##appendChild
-       (term.block.group#element :> Dom.node Js.t))
-
 let render ctx =
   (* Render the block upon entry into DOM rather than construction so that
      text.getComputedTextLength() works correctly *)

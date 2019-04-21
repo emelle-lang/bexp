@@ -324,17 +324,19 @@ module Scrollbar (Axis : ScrollAxis) = struct
       let doc = Dom_html.document in
       doc##.onmousemove :=
         Dom.handler (fun ev ->
-            let bounds = box_length -. self#length in
-            if Float.compare bounds 0.0 = 1 then (
+            let mouse_offset = Axis.event_pos ev - init_client_pos in
+            let open Float.O in
+            let bounds = box_length - self#length in
+            if bounds > 0.0 then (
               Axis.set_pos (rect :> widget)
-                (init_pos +.
-                   (Float.of_int (Axis.event_pos ev - init_client_pos)));
-              if Float.compare (Axis.pos (rect :> widget)) bounds = 1 then
+                (init_pos + (Float.of_int mouse_offset));
+              if (Axis.pos (rect :> widget)) > bounds then
                 Axis.set_pos (rect :> widget) bounds;
-              if Float.compare (Axis.pos (rect :> widget)) 0.0 = -1 then
+              if (Axis.pos (rect :> widget)) < 0.0 then
                 Axis.set_pos (rect :> widget) 0.0;
               let progress = Axis.pos (rect :> widget) /. bounds in
-              Axis.set_pos widget (0.0 -. progress *. bounds);
+              Axis.set_pos widget
+                (0.0 - progress * (Axis.length widget - box_length));
               on_scroll ()
             );
             Js._true
