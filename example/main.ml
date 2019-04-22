@@ -11,9 +11,10 @@ type arith =
   | Add of binop
   | If of if_expr
   | Let of
-      (string ref * (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole)
-  | Num of string ref
-  | Var of string ref
+      (Bexp.Widget.text_input * (symbols, arith) Bexp.hole
+       * (symbols, arith) Bexp.hole)
+  | Num of Bexp.Widget.text_input
+  | Var of Bexp.Widget.text_input
 
 and binop =
   (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole
@@ -86,9 +87,9 @@ let setter str_ref str =
 
 let num_def =
   let open Bexp.Syntax in
-  let str_ref = ref "120" in
-  Bexp.Syntax.create [ text_input ~str:"120" (setter str_ref) ]
-    ~create:(fun () -> str_ref)
+  let input = Bexp.Widget.create_text_input "120" in
+  Bexp.Syntax.create [ widget input (fun x -> x) ]
+    ~create:(fun () -> Bexp.Widget.create_text_input input#value)
     ~to_term:(fun args -> Num args)
     ~symbol_of_term:symbol_of_arith
 
@@ -115,12 +116,12 @@ let if_def =
 
 let let_def =
   let open Bexp.Syntax in
-  let str_ref = ref "x" in
+  let input = Bexp.Widget.create_text_input "x" in
   Bexp.Syntax.create
-    [text "let";  text_input ~str:"x" (setter str_ref); text "=";
+    [text "let"; widget input (fun (x, _, _) -> x); text "=";
      nt (fun (_, x, _) -> x) arith_data; text "in"; newline;
      nt (fun (_, _, x) -> x) arith_data]
-    ~create:(fun () -> ( str_ref
+    ~create:(fun () -> ( Bexp.Widget.create_text_input input#value
                        , Bexp.Hole.create get_arith arith_data
                        , Bexp.Hole.create get_arith arith_data ))
     ~to_term:(fun args -> Let args)

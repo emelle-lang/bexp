@@ -14,6 +14,7 @@ class type t = object
   method set_y : float -> unit
   method width : float
   method height : float
+  method render : unit
   method set_onresize : (unit -> unit) -> unit
 end
 
@@ -80,6 +81,8 @@ class rect
 
   method set_height = set_height elem
 
+  method render = ()
+
   method set_onresize (_ : unit -> unit) = ()
 end
 
@@ -118,6 +121,8 @@ class group
   method height = rect#height
 
   method set_height = rect#set_height
+
+  method render = ()
 
   method add_child (child : t) =
     ignore (elem##appendChild (child#element :> Dom.node Js.t))
@@ -164,15 +169,19 @@ class text ?(x=0.0) ?(y=0.0) doc text = object
 
   method height = 20.0
 
+  method render = ()
+
   method set_onresize (_ : unit -> unit) = ()
 end
 
-class text_input ?(x=0.0) ?(y=0.0) ?(str="") set_str doc = object
+class text_input ?(x=0.0) ?(y=0.0) ?(str="") doc = object(self)
   val foreign_obj =
     (* Dom_svg.createForeignObject is implemented incorrectly -_- *)
     (Js.Unsafe.coerce (Dom_svg.createElement doc "foreignObject")
      : Dom_svg.foreignObjectElement Js.t)
   val input = Dom_html.createInput Dom_html.document
+
+  val mutable onresize = fun () -> ()
 
   initializer
     input##.value := Js.string str;
@@ -185,17 +194,25 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") set_str doc = object
     input##.style##.fontSize := Js.string "10px";
     ignore (
         Dom.addEventListener foreign_obj
-          (Dom_html.Event.mousedown)
+          Dom_html.Event.mousedown
           (Dom.handler (fun ev ->
                Dom_html.stopPropagation ev;
                Js._true
           ))
           Js._false
-      )
+      );
+    input##.oninput :=
+      Dom.handler (fun _ev ->
+          self#render;
+          onresize ();
+          Js._false
+        )
 
   method element = foreign_obj
 
   method input = input
+
+  method value = Js.to_string input##.value
 
   method x = length_of_anim foreign_obj##.x
 
@@ -209,24 +226,25 @@ class text_input ?(x=0.0) ?(y=0.0) ?(str="") set_str doc = object
 
   method height = length_of_anim foreign_obj##.height
 
-  method set_onresize (onresize : unit -> unit) =
-    input##.oninput :=
-      Dom.handler (fun _ ->
-          let str = set_str (Js.to_string input##.value) in
-          let char_c = String.length str in
-          let sz = if char_c > 0 then char_c else 1 in
-          set_float_prop input "size" (Float.of_int sz);
-          let rect = input##getBoundingClientRect in
-          (* Why would the width be undefined...? MDN doesn't note anything
-             like that... *)
-          set_width foreign_obj (Js.Optdef.get rect##.width (fun () -> 0.0));
-          onresize ();
-          Js._false
-        )
+  method render =
+    let str = Js.to_string input##.value in
+    let char_c = String.length str in
+    let sz = if char_c > 0 then char_c else 1 in
+    set_float_prop input "size" (Float.of_int sz);
+    let rect = input##getBoundingClientRect in
+    (* Why would the width be undefined...? MDN doesn't note anything
+       like that... *)
+    set_width foreign_obj (Js.Optdef.get rect##.width (fun () -> 0.0))
 
-  method set_enabled b =
-    input##.disabled := Js.bool (not b)
+  method set_onresize (f : unit -> unit) =
+    onresize <- f
+
+  method set_readonly b =
+    input##.readOnly := Js.bool b
 end
+
+let create_text_input str =
+  new text_input ~str Dom_svg.document
 
 class ['a] wrapper ?x ?y (ch : (#t as 'a)) doc = object
   val group = new group ?x ?y doc
@@ -253,6 +271,8 @@ class ['a] wrapper ?x ?y (ch : (#t as 'a)) doc = object
   method height =
     group#set_height child#height;
     child#height
+
+  method render = child#render
 
   method set_onresize = child#set_onresize
 

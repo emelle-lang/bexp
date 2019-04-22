@@ -26,59 +26,7 @@ module Placeholder = struct
     t.placeholder_group#set_height 20.0
 end
 
-(** "Nonterminal" *)
-let nt hole_f palette_data =
-  Syn_Child(Hole.Placeholder.create palette_data, hole_f)
-
-(** Builds a widget that contains text *)
-let text str =
-  let doc = Dom_svg.document in
-  let text_elem () = new Widget.text doc str in
-  Syn_Widget ( (text_elem () :> Widget.t)
-             , (text_elem :> unit -> Widget.t) )
-
-let text_input ?(str="") set_str =
-  let doc = Dom_svg.document in
-  let elem () =
-    let input = new Widget.text_input ~str set_str doc in
-    input#input##.style##.fontFamily := Js.string "mono";
-    input
-  in
-  let text_elem = new Widget.text doc str in
-  text_elem#element##.style##.fill := Js.string "black";
-  let wrapper = new Widget.wrapper (text_elem :> Widget.t) doc in
-  wrapper#style##.fill := Js.string "white";
-  Syn_Widget ( (wrapper :> Widget.t)
-             , (elem :> unit -> Widget.t) )
-
-let newline = Syn_Newline
-
-let tab = Syn_Tab
-
-(** Run the syntax to produce a fresh block. *)
-let run symbol_of_term ?x ?y ctx syntax =
-  let sym = syntax.syn_create () in
-  let term = syntax.term_of_arity sym in
-  let items =
-    List.map ~f:(function
-        | Syn_Child(_, hole_f) -> Child (Hole (hole_f sym))
-        | Syn_Newline -> Newline
-        | Syn_Widget(_, f) -> Widget (f ())
-        | Syn_Tab -> Tab
-      ) syntax.syn_items
-  in
-  let block = Block.create ?x ?y symbol_of_term ctx term items in
-  List.iter items ~f:(function
-      | Widget widget ->
-         (* If the widget is ever resized, re-render the block *)
-         widget#set_onresize (fun () ->
-             ignore (Block.rerender_root block.block)
-           )
-      | _ -> ()
-    );
-  block
-
-let render syntax =
+let rec render syntax =
   let rec loop max_width x y = function
     | [] -> max_width, y
     | item::items ->
@@ -88,6 +36,8 @@ let render syntax =
          | Syn_Widget(widget, _) ->
             widget#set_x x;
             widget#set_y (Float.of_int y *. Block.col_height);
+            widget#set_onresize (fun () -> ignore (render syntax));
+            widget#render;
             x +. widget#width, y
          | Syn_Child(hole, _) ->
             hole.placeholder_group#set_x x;
@@ -104,6 +54,47 @@ let render syntax =
   syntax.syn_group#set_height
     (Float.of_int (height + 1) *. Block.col_height);
   dim
+
+(** "Nonterminal" *)
+let nt hole_f palette_data =
+  Syn_Child(Hole.Placeholder.create palette_data, hole_f)
+
+(** Builds a widget that contains text *)
+let text str =
+  let doc = Dom_svg.document in
+  let text_elem _ = new Widget.text doc str in
+  Syn_Widget ( (text_elem () :> Widget.t)
+             , (text_elem :> _ -> Widget.t) )
+
+let widget input getter =
+  Syn_Widget ( (input :> Widget.t)
+             , (getter :> _ -> Widget.t) )
+
+let newline = Syn_Newline
+
+let tab = Syn_Tab
+
+(** Run the syntax to produce a fresh block. *)
+let run symbol_of_term ?x ?y ctx syntax =
+  let sym = syntax.syn_create () in
+  let term = syntax.term_of_arity sym in
+  let items =
+    List.map syntax.syn_items ~f:(function
+        | Syn_Child(_, hole_f) -> Child (Hole (hole_f sym))
+        | Syn_Newline -> Newline
+        | Syn_Widget(_, f) -> Widget (f sym)
+        | Syn_Tab -> Tab
+      ) in
+  let block = Block.create ?x ?y symbol_of_term ctx term items in
+  List.iter items ~f:(function
+      | Widget widget ->
+         (* If the widget is ever resized, re-render the block *)
+         widget#set_onresize (fun () ->
+             ignore (Block.rerender_root block.block)
+           )
+      | _ -> ()
+    );
+  block
 
 let create ~create ~to_term ~symbol_of_term items =
   let doc = Dom_svg.document in

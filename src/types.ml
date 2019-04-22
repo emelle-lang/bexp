@@ -126,7 +126,8 @@ and ('symbols, 'arity) syn_item =
       placeholder * ('arity -> ('symbols, _) hole)
       -> ('symbols, 'arity) syn_item
   | Syn_Newline
-  | Syn_Widget of Widget.t * (unit -> Widget.t)
+  | Syn_Widget :
+      Widget.t * ('arity -> Widget.t) -> ('symbols, 'arity) syn_item
   | Syn_Tab
 
 (** [('symbols, 'sort, 'arity) t]
@@ -134,7 +135,7 @@ and ('symbols, 'arity) syn_item =
     ['symbols] - The set of symbols in the language
     ['sort] - The set of terms (e.g. expr, type, kind)
     ['arity] - The type of the arity (e.g. type * type, term * term) *)
-and ('symbols, 'sort, 'arity) syntax = {
+and ('symbols, 'sort, 'arity, 'syn_arity) syntax = {
     syn_items : ('symbols, 'arity) syn_item list;
     syn_create : unit -> 'arity;
     term_of_arity : 'arity -> 'sort;
@@ -143,7 +144,7 @@ and ('symbols, 'sort, 'arity) syntax = {
   }
 
 and ('symbols, 'sort) exists_syntax =
-  Syntax : ('symbols, 'sort, _) syntax -> ('symbols, 'sort) exists_syntax
+  Syntax : ('symbols, 'sort, _, _) syntax -> ('symbols, 'sort) exists_syntax
 
 type ('symbols, 'sort) t = {
     workspace : 'symbols ctx;

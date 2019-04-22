@@ -20,6 +20,7 @@ let rec render block : float * int =
          | Widget widget ->
             widget#set_x x;
             widget#set_y (Float.of_int y *. col_height);
+            widget#render;
             x +. widget#width, y
          | Child (Hole { hole_term; hole_group; hole_placeholder; _ }) ->
             hole_group#set_x x;
