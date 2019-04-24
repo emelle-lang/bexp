@@ -203,7 +203,33 @@ let drag term ev x_offset y_offset =
         block.ctx.drop_candidate <- candidate;
         Hole.highlight hole
 
-let drop ((Term term) as t) =
+let rec listen_to_drags (Term term) =
+  ignore (
+      Dom.addEventListener
+        term.block.group#element
+        Dom_html.Event.mousedown
+        (Dom.handler (fun ev ->
+             term.block.group#element##.onmousemove :=
+               Dom.handler (fun ev ->
+                   term.block.group#element##.onmousemove :=
+                     (Dom.handler (fun _ -> Js._false));
+                   pick_up (Term term) ev;
+                   Js._false
+                 );
+             (* Once the mouse is picked up, stop listening to drags *)
+             term.block.group#element##.onmouseup :=
+               Dom.handler (fun _ev ->
+                   term.block.group#element##.onmousemove :=
+                     (Dom.handler (fun _ -> Js._false));
+                   Js._false
+                 );
+             Dom_html.stopPropagation ev; (* Important! *)
+             Js._false)
+        ) Js._false (* If this is true, then parent gets picked up first *)
+    );
+
+and drop ((Term term) as t) =
+  listen_to_drags t;
   let block = term.block in
   let x, y = to_local_coords block in
   if x < 0.0 then
@@ -227,7 +253,7 @@ let drop ((Term term) as t) =
            ignore (rerender_root term.block)
          )
 
-let begin_drag ((Term term) as t) ev =
+and begin_drag ((Term term) as t) ev =
   let block = term.block in
   let x_offset = Float.of_int ev##.clientX -. block.group#x in
   let y_offset = Float.of_int ev##.clientY -. block.group#y in
@@ -252,7 +278,7 @@ let begin_drag ((Term term) as t) ev =
   block.ctx.picked_up_block <- Some t;
   move_to_front block
 
-let pick_up ((Term term) as t) ev =
+and pick_up ((Term term) as t) ev =
   let block = term.block in
   begin match block.parent with
   | Hole_parent (Hole hole) ->
@@ -301,14 +327,5 @@ let create ?(x=0.0) ?(y=0.0) symbol_of_term ctx term items =
          end
       | _ -> ()
     );
-  ignore (
-      Dom.addEventListener
-        block.group#element
-        Dom_html.Event.mousedown
-        (Dom.handler (fun ev ->
-             pick_up (Term term) ev;
-             Dom_html.stopPropagation ev;
-             Js._false
-           )
-        ) Js._false); (* If this is true, then parent gets picked up first *)
+  listen_to_drags (Term term);
   term
