@@ -32,10 +32,9 @@ let render toolbox =
       toolbox.toolbox_scrollbox#render
     )
 
-let create ?x ?y ~width ~height  =
-  let doc = Dom_svg.document in
+let create ?x ?y ~width ~height painter =
   let scrollbox =
-    new Widget.scrollbox ?x ?y ~width ~height doc in
+    new Widget.scrollbox ?x ?y ~width ~height painter in
   let toolbox =
     { toolbox_scrollbox = scrollbox
     ; palette = None } in

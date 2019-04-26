@@ -3,8 +3,10 @@
    This Source Code Form is subject to the terms of the Mozilla Public
    License, v. 2.0. If a copy of the MPL was not distributed with this
    file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
+
 open Base
 open Js_of_ocaml
+open Svg
 
 class type t = object
   method element : Dom_svg.element Js.t
@@ -17,36 +19,6 @@ class type t = object
   method render : unit
   method set_onresize : (unit -> unit) -> unit
 end
-
-let set_string_prop elem prop str =
-  elem##setAttribute (Js.string prop) (Js.string str)
-
-let string_of_float float =
-  let str = Float.to_string float in
-  (* If the stringified float ends in a decimal, append a 0 *)
-  if Char.equal (String.get str (String.length str - 1)) '.' then
-    str ^ "0"
-  else
-    str
-
-let set_float_prop elem prop float =
-  set_string_prop elem prop (string_of_float float)
-
-let length_of_anim js_t =
-  js_t##.baseVal##.value
-
-let set_x elem = set_float_prop elem "x"
-
-let set_y elem = set_float_prop elem "y"
-
-let set_width elem = set_float_prop elem "width"
-
-let set_height elem = set_float_prop elem "height"
-
-let render_transform x y =
-  let x = string_of_float x in
-  let y = string_of_float y in
-  "translate(" ^ x ^ " " ^ y ^ ")"
 
 class rect
         ?(x=0.0) ?(y=0.0)
@@ -405,61 +377,42 @@ let create_vert_scrollbar ~x ~y ?(r=5.0) ?(width=10.0) ~height widget doc =
   let rect = new rect ~x ~y ~rx:r ~ry:r ~width ~height doc in
   new VertScrollbar.t ~rect ~box_length:height widget
 
-let clip_path x y width height =
-  let x = x in
-  let y = y in
-  let width = string_of_float (x +. width) in
-  let height = string_of_float (y +. height) in
-  let x = string_of_float x in
-  let y = string_of_float y in
-  "polygon(" ^ x ^ " " ^ y ^ ", "
-  ^ width ^ " " ^ y ^ ", "
-  ^ width ^ " " ^ height ^ ", "
-  ^ x ^ " " ^ height ^ ")"
+let render_clip t clip =
+  set_x clip (0.0 -. t#x);
+  set_y clip (0.0 -. t#y)
 
-class scrollbox ?x ?y ~width ~height ?(scrollbar_thickness=10.0) doc =
+class scrollbox ?(x=0.0) ?(y=0.0) ~width ~height ?(scrollbar_thickness=10.0)
+        painter =
+  let doc = painter.Painter.svg_doc in
+  let width' = width -. scrollbar_thickness in
+  let height' = height -. scrollbar_thickness in
   let container_group =
-    new group ~x:0.0 ~y:0.0
-      ~width:(width -. scrollbar_thickness)
-      ~height:(height -. scrollbar_thickness) doc
+    new group ~x:0.0 ~y:0.0 ~width:width' ~height:height' doc
   in
-  (*  let clip_path = clip_path 0.0 0.0 width height in*)
   object(self)
-    val root = new group ?x ?y ~width ~height doc
+    val root = new group ~x ~y ~width ~height doc
     val container = container_group
     val horiz_scrollbar =
-      create_horiz_scrollbar
-        ~y:(height -.10.0) ~x:0.0
-        ~width:(width -. scrollbar_thickness) (container_group :> t) doc
+      create_horiz_scrollbar ~x:0.0 ~y:height'
+        ~width:width' (container_group :> t) doc
     val vert_scrollbar =
-      create_vert_scrollbar
-        ~x:(width -. 10.0) ~y:0.0
-        ~height:(height -. scrollbar_thickness) (container_group :> t) doc
+      create_vert_scrollbar ~x:width' ~y:0.0
+        ~height:height' (container_group :> t) doc
+    val clip_rect =
+      Painter.clip_elem painter container_group#element
+        ~width:width' ~height:height'
+    val mutable on_scroll = fun () -> ()
 
     initializer
       let on_scroll () = self#render in
       horiz_scrollbar#set_on_scroll on_scroll;
       vert_scrollbar#set_on_scroll on_scroll;
-      (* Hide the parts of the wrapped widget that go out of the box *)
-      set_string_prop container#element "clip-path" self#clip_path;
       container#rect_style##.fill := Js.string "grey";
       root#add_child (container :> t);
       root#add_child (horiz_scrollbar :> t);
-      root#add_child (vert_scrollbar :> t)
-
-    method clip_path =
-      (* I think I only need to do this if the SVG was positioned using
-         transforms, and if it's something like a rect, it won't work *)
-      let x = 0.0 -. container#x in
-      let y = 0.0 -. container#y in
-      let width = string_of_float (x +. width -. 10.0) in
-      let height = string_of_float (y +. height -. 10.0) in
-      let x = string_of_float x in
-      let y = string_of_float y in
-      "polygon(" ^ x ^ " " ^ y ^ ", "
-      ^ width ^ " " ^ y ^ ", "
-      ^ width ^ " " ^ height ^ ", "
-      ^ x ^ " " ^ height ^ ")"
+      root#add_child (vert_scrollbar :> t);
+      horiz_scrollbar#set_on_scroll (fun () -> on_scroll (); self#render);
+      vert_scrollbar#set_on_scroll (fun () -> on_scroll (); self#render)
 
     method group = container
 
@@ -476,13 +429,14 @@ class scrollbox ?x ?y ~width ~height ?(scrollbar_thickness=10.0) doc =
     method width = root#width
 
     method render =
-      set_string_prop container#element "clip-path" self#clip_path;
       horiz_scrollbar#render;
-      vert_scrollbar#render
+      vert_scrollbar#render;
+      (* Hide the parts of the wrapped widget that go out of the box *)
+      (* container must be in the DOM tree first! *)
+      render_clip container clip_rect
 
     method height = height
 
     method set_on_scroll f =
-      horiz_scrollbar#set_on_scroll f;
-      vert_scrollbar#set_on_scroll f
+      on_scroll <- f
 end

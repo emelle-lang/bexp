@@ -25,8 +25,7 @@ open Js_of_ocaml
    single file. *)
 
 type 'symbols ctx = {
-    container : Dom_html.element Js.t;
-    svg_elem : Dom_svg.svgElement Js.t;
+    painter : Painter.t;
     root_layer : Widget.group;
     script_scrollbox : Widget.scrollbox;
     mutable picked_up_block : 'symbols exists_term option;
