@@ -3,24 +3,41 @@
    This Source Code Form is subject to the terms of the Mozilla Public
    License, v. 2.0. If a copy of the MPL was not distributed with this
    file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
+
 open Core_kernel
 open Js_of_ocaml
 open Types
 
-let create ?x ?y ~width ~height hole =
+let create container hole =
   let doc = Dom_svg.document in
-  let root_layer = new Widget.group ?x ?y ~width ~height doc in
-  let toolbox = Toolbox.create ?x ?y ~width:200.0 ~height in
+  let svg_elem = Dom_svg.createSvg doc in
+  ignore (container##appendChild (svg_elem :> Dom.node Js.t));
+  let width = container##.offsetWidth in
+  let height = container##.offsetHeight in
+  Widget.set_string_prop svg_elem "width" (Int.to_string width ^ "px");
+  Widget.set_string_prop svg_elem "height" (Int.to_string height ^ "px");
+  Widget.set_string_prop svg_elem "style" "display: block";
+  let x = 0.0 in
+  let y = 0.0 in
+  let width = Float.of_int width in
+  let height = Float.of_int height in
+  let root_layer = new Widget.group ~x ~y ~width ~height doc in
+  let toolbox = Toolbox.create ~x ~y ~width:200.0 ~height in
+  let width' = width -. (Toolbox.width toolbox) in
+  let scrollbox =
+    new Widget.scrollbox
+      ~x:(Toolbox.width toolbox) ~y ~width:width' ~height doc
+  in
   ignore (root_layer#element##appendChild
             (toolbox.toolbox_scrollbox#element :> Dom.node Js.t));
-  let width = width -. (Toolbox.width toolbox) in
-  let scrollbox =
-    new Widget.scrollbox ~x:(Toolbox.width toolbox) ?y ~width ~height doc in
   ignore (root_layer#element##appendChild
             (scrollbox#element :> Dom.node Js.t));
   ignore (scrollbox#group#element##appendChild
             (hole.hole_group#element :> Dom.node Js.t));
-  { root_layer
+  ignore (svg_elem##appendChild (root_layer#element :> Dom.node Js.t));
+  { container
+  ; svg_elem
+  ; root_layer
   ; picked_up_block = None
   ; scripts = Doubly_linked.create ()
   ; drop_candidate = None

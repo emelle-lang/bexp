@@ -25,6 +25,8 @@ open Js_of_ocaml
    single file. *)
 
 type 'symbols ctx = {
+    container : Dom_html.element Js.t;
+    svg_elem : Dom_svg.svgElement Js.t;
     root_layer : Widget.group;
     script_scrollbox : Widget.scrollbox;
     mutable picked_up_block : 'symbols exists_term option;
@@ -145,11 +147,6 @@ and ('symbols, 'sort, 'arity, 'syn_arity) syntax = {
 
 and ('symbols, 'sort) exists_syntax =
   Syntax : ('symbols, 'sort, _, _) syntax -> ('symbols, 'sort) exists_syntax
-
-type ('symbols, 'sort) t = {
-    workspace : 'symbols ctx;
-    hole : ('symbols, 'sort) hole;
-  }
 
 let set_style widget palette_data =
   let g's_style = widget#element##.style in

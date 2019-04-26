@@ -18,6 +18,7 @@ build:
   script:
   - dune build example/main.bc.js --profile release
   - dune build example/index.html
+  - dune build example/stylesheet.css
   artifacts:
     paths:
     - _build

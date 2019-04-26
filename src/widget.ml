@@ -405,12 +405,25 @@ let create_vert_scrollbar ~x ~y ?(r=5.0) ?(width=10.0) ~height widget doc =
   let rect = new rect ~x ~y ~rx:r ~ry:r ~width ~height doc in
   new VertScrollbar.t ~rect ~box_length:height widget
 
+let clip_path x y width height =
+  let x = x in
+  let y = y in
+  let width = string_of_float (x +. width) in
+  let height = string_of_float (y +. height) in
+  let x = string_of_float x in
+  let y = string_of_float y in
+  "polygon(" ^ x ^ " " ^ y ^ ", "
+  ^ width ^ " " ^ y ^ ", "
+  ^ width ^ " " ^ height ^ ", "
+  ^ x ^ " " ^ height ^ ")"
+
 class scrollbox ?x ?y ~width ~height ?(scrollbar_thickness=10.0) doc =
   let container_group =
     new group ~x:0.0 ~y:0.0
       ~width:(width -. scrollbar_thickness)
       ~height:(height -. scrollbar_thickness) doc
   in
+  (*  let clip_path = clip_path 0.0 0.0 width height in*)
   object(self)
     val root = new group ?x ?y ~width ~height doc
     val container = container_group
