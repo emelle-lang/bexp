@@ -77,6 +77,7 @@ and ('symbols, 'sort) hole = {
     hole_placeholder : placeholder;
     hole_group : Widget.group;
     mutable hole_parent : 'symbols block option;
+    mutable hole_error : (unit -> unit) option;
   }
 
 and 'symbols exists_hole =

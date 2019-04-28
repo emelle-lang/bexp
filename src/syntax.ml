@@ -16,7 +16,6 @@ module Placeholder = struct
     let text = new Widget.text doc palette_data.palette_name in
     text#element##.style##.fill := Js.string "white";
     let placeholder_group = new Widget.group doc in
-    placeholder_group#element##.style##.fill := Js.string "green";
     placeholder_group#add_child (text :> Widget.t);
     set_style placeholder_group palette_data;
     { text; placeholder_group }

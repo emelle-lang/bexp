@@ -198,10 +198,10 @@ let drag term ev x_offset y_offset =
      match hole.term_of_symbol (term.symbol_of_term term) with
      | None ->
         block.ctx.drop_candidate <- candidate;
-        Hole.highlight_error hole
+        Hole.highlight_reject hole
      | Some _ ->
         block.ctx.drop_candidate <- candidate;
-        Hole.highlight hole
+        Hole.highlight_accept hole
 
 let rec listen_to_drags (Term term) =
   ignore (
