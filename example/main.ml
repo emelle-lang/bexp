@@ -42,10 +42,6 @@ let get_pred = function
   | Pred a -> Some a
   | _ -> None
 
-let symbol_of_arith a = Arith a
-
-let symbol_of_pred p = Pred p
-
 let left (l, _) = l
 
 let right (_, r) = r

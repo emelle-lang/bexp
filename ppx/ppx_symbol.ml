@@ -1,9 +1,9 @@
 open Base
 open Ppxlib
 
-let append_typename ~loc name typedecl =
+let make_varpat ~loc name =
   { ppat_loc = loc
-  ; ppat_desc = Ppat_var { txt = name ^ typedecl.ptype_name.txt; loc }
+  ; ppat_desc = Ppat_var { txt = name; loc }
   ; ppat_attributes = [] }
 
 let get_types list =
@@ -35,8 +35,7 @@ let make_constr ~loc name =
   ; pcd_loc = loc
   ; pcd_attributes = [] }
 
-let gen_symbol_ty ~loc items =
-  let types, nontypes = get_types items in
+let gen_symbol_ty ~loc types =
   let names = get_typenames types in
   let symbol_ty =
     { ptype_name = { txt = "symbols"; loc }
@@ -47,16 +46,29 @@ let gen_symbol_ty ~loc items =
     ; ptype_manifest = None
     ; ptype_attributes = []
     ; ptype_loc = loc }
-  in
-  { pmod_desc =
-      Pmod_structure
-        ({ pstr_desc = Pstr_type (Recursive, symbol_ty :: types)
-         ; pstr_loc = loc } :: nontypes)
-  ; pmod_loc = loc
-  ; pmod_attributes = [] }
+  in symbol_ty, names
+
+let gen_wrapper ~loc name =
+  let constr_expr =
+    { pexp_desc =
+        (let lident_loc = { txt = Lident (String.capitalize name); loc } in
+         Pexp_construct(lident_loc, Some [%expr data]))
+    ; pexp_loc = loc
+    ; pexp_attributes = [] } in
+  let pat = make_varpat ~loc ("symbol_of_" ^ name) in
+  [%stri let [%p pat] = fun data -> [%e constr_expr]]
 
 let gen_symbol_ty ~loc ~path:_ = function
-  | PStr items -> gen_symbol_ty ~loc items
+  | PStr items ->
+     let types, nontypes = get_types items in
+     let symbol_ty, names = gen_symbol_ty ~loc types in
+     { pmod_desc =
+         Pmod_structure
+           ({ pstr_desc = Pstr_type (Recursive, symbol_ty :: types)
+            ; pstr_loc = loc }
+            :: (nontypes @ List.map ~f:(gen_wrapper ~loc) names))
+     ; pmod_loc = loc
+     ; pmod_attributes = [] }
   | _ -> Location.raise_errorf ~loc "Error, not a structure"
 
 let ext =

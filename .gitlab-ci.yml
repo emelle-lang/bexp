@@ -9,6 +9,7 @@ before_script:
 - opam install -y -q dune
 - opam install -y -q core_kernel
 - opam install -y -q odoc
+- opam install -y -q ppxlib
 - opam install -y -q js_of_ocaml
 - opam install -y -q js_of_ocaml-ppx
 - opam upgrade -y -q
