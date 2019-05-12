@@ -6,30 +6,31 @@
 
 open Js_of_ocaml
 
-type arith =
-  | Add of binop
-  | If of if_expr
-  | Let of
-      (Bexp.Widget.text_input * (symbols, arith) Bexp.hole
-       * (symbols, arith) Bexp.hole)
-  | Num of Bexp.Widget.text_input
-  | Var of Bexp.Widget.text_input
+module T =
+  [%symbol
+   type arith =
+     | Add of binop
+     | If of if_expr
+     | Let of
+         (Bexp.Widget.text_input * (symbols, arith) Bexp.hole
+          * (symbols, arith) Bexp.hole)
+     | Num of Bexp.Widget.text_input
+     | Var of Bexp.Widget.text_input
 
-and binop =
-  (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole
+   and binop =
+     (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole
 
-and if_expr =
-  (symbols, pred) Bexp.hole
-  * (symbols, arith) Bexp.hole
-  * (symbols, arith) Bexp.hole
+   and if_expr =
+     (symbols, pred) Bexp.hole
+     * (symbols, arith) Bexp.hole
+     * (symbols, arith) Bexp.hole
 
-and pred =
-  | Equals of binop
-  | Not of (symbols, pred) Bexp.hole
+   and pred =
+     | Equals of binop
+     | Not of (symbols, pred) Bexp.hole
+  ]
 
-and symbols =
-  | Arith of (symbols, arith) Bexp.term
-  | Pred of (symbols, pred) Bexp.term
+open T
 
 let doc = Dom_svg.document
 
