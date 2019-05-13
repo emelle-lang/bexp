@@ -49,14 +49,27 @@ let gen_symbol_ty ~loc types =
   in symbol_ty, names
 
 let gen_wrapper ~loc name =
+  let fun_name = make_varpat ~loc ("symbol_of_" ^ name) in
   let constr_expr =
     { pexp_desc =
         (let lident_loc = { txt = Lident (String.capitalize name); loc } in
          Pexp_construct(lident_loc, Some [%expr data]))
     ; pexp_loc = loc
     ; pexp_attributes = [] } in
-  let pat = make_varpat ~loc ("symbol_of_" ^ name) in
-  [%stri let [%p pat] = fun data -> [%e constr_expr]]
+  [%stri let [%p fun_name] = fun data -> [%e constr_expr]]
+
+let gen_getter ~loc name =
+  let fun_name = make_varpat ~loc ("get_" ^ name) in
+  let constr_pat =
+    { ppat_desc =
+        (let lident_loc = { txt = Lident (String.capitalize name); loc } in
+         Ppat_construct(lident_loc, Some [%pat? data]))
+    ; ppat_loc = loc
+    ; ppat_attributes = [] } in
+  [%stri let [%p fun_name] = function
+     | [%p constr_pat] -> Some data
+     | _ -> None
+  ]
 
 let gen_symbol_ty ~loc ~path:_ = function
   | PStr items ->
@@ -66,7 +79,10 @@ let gen_symbol_ty ~loc ~path:_ = function
          Pmod_structure
            ({ pstr_desc = Pstr_type (Recursive, symbol_ty :: types)
             ; pstr_loc = loc }
-            :: (nontypes @ List.map ~f:(gen_wrapper ~loc) names))
+            :: List.fold names ~init:nontypes
+                 ~f:(fun acc next ->
+                   (gen_wrapper ~loc next) :: (gen_getter ~loc next) :: acc)
+           )
      ; pmod_loc = loc
      ; pmod_attributes = [] }
   | _ -> Location.raise_errorf ~loc "Error, not a structure"

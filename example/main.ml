@@ -34,14 +34,6 @@ open T
 
 let doc = Dom_svg.document
 
-let get_arith = function
-  | Arith a -> Some a
-  | _ -> None
-
-let get_pred = function
-  | Pred a -> Some a
-  | _ -> None
-
 let left (l, _) = l
 
 let right (_, r) = r
