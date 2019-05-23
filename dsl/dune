@@ -1,0 +1,9 @@
+(ocamllex lexer)
+
+(menhir
+  (modules parser))
+
+(executable
+  (name bexp_dsl)
+  (libraries core stdio)
+  (preprocess (pps ppx_jane)))

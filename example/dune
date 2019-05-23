@@ -1,3 +1,8 @@
+(rule
+  (targets main.ml)
+  (action (run ../dsl/bexp_dsl.exe grammar -o main.ml))
+  (deps grammar (package bexp)))
+
 (executable
   (name main)
   (libraries base bexp)

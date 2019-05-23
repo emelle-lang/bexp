@@ -1,0 +1,70 @@
+{{
+(* Copyright (C) 2019 TheAspiringHacker.
+
+   This Source Code Form is subject to the terms of the Mozilla Public
+   License, v. 2.0. If a copy of the MPL was not distributed with this
+   file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
+
+open Js_of_ocaml
+
+module T =
+  [%symbol
+   type arith =
+     | Add of binop
+     | If of if_expr
+     | Let of
+         (Bexp.Widget.text_input * (symbols, arith) Bexp.hole
+          * (symbols, arith) Bexp.hole)
+     | Num of Bexp.Widget.text_input
+     | Var of Bexp.Widget.text_input
+
+   and binop =
+     (symbols, arith) Bexp.hole * (symbols, arith) Bexp.hole
+
+   and if_expr =
+     (symbols, pred) Bexp.hole
+     * (symbols, arith) Bexp.hole
+     * (symbols, arith) Bexp.hole
+
+   and pred =
+     | Equals of binop
+     | Not of (symbols, pred) Bexp.hole
+  ]
+
+open T
+
+let doc = Dom_svg.document
+
+let container = Dom_html.getElementById "workspace-div"
+
+let arith_data =
+  { Bexp.palette_name = "arithmetic"
+  ; Bexp.palette_color = "red" }
+
+let pred_data =
+  { Bexp.palette_name = "pred"
+  ; Bexp.palette_color = "blue" }
+
+let main_hole = Bexp.Hole.create get_arith arith_data
+
+let ctx = Bexp.Workspace.create container main_hole
+}}
+
+arith:
+  | plus: arith "+" arith {{ fun (l, r) -> Add(l, r) }}
+  | num: ?"120" {{ fun num -> Num num }}
+  | if: "if" pred "then" newline tab arith newline "else" newline tab arith
+    {{ fun args -> If args }}
+  | let: "let" ?"x" "=" arith "in" newline arith {{ fun args -> Let args }}
+  ;
+
+pred:
+  | eq: arith "=" arith {{ fun args -> Equals args }}
+  | not: "not" pred {{ fun x -> Not x }}
+  ;
+
+{{
+let () =
+  Bexp.Toolbox.set_palette ctx.Bexp.toolbox arith_palette;
+  Bexp.Workspace.render ctx
+}}
