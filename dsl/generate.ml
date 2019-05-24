@@ -122,6 +122,12 @@ let emit_symbols t arity =
   Buffer.add_string t.buf "[ ";
   print_symbols 0 0
 
+let filter_args =
+  List.filter ~f:(function
+      | Syntax.Input _ | Nonterminal _ -> true
+      | _ -> false
+    )
+
 let emit_create t list =
   let print_elem t idx input_idx symbol f = match symbol with
     | Syntax.Input _ ->
@@ -156,7 +162,7 @@ let emit_create t list =
   indent t (fun t ->
       tab t;
       Buffer.add_string t.buf "( ";
-      print_create t 0 0 list
+      print_create t 0 0 (filter_args list)
     )
 
 let emit_prod t nt_name prod =

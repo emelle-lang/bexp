@@ -6,12 +6,18 @@ languages.
 ## Building
 
     opam switch 4.07.1
-    opam install core_kernel
+    opam install dune
+    opam install menhir
+    opam install stdio
+    opam install core
+    opam install odoc
+    opam install ppxlib
+    opam install ppx_jane
     opam install js_of_ocaml
     opam install js_of_ocaml-ppx
-    opam install dune
     dune build example/main.bc.js
     dune build example/index.html
+    dune build example/stylesheet.css
 
 Then, navigate to `_build/main/example/index.html`.
 
