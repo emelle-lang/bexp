@@ -21,4 +21,4 @@ languages.
 
 Then, navigate to `_build/main/example/index.html`.
 
-**See the example at https://emelle.gitlab.io/bexp/example/index.html.**
+**See the example at https://emmeline.gitlab.io/bexp/example/index.html.**
