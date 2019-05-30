@@ -6,14 +6,18 @@ before_script:
 - opam init -c 4.07.1 --root=.opam
 - eval $(opam env --root=.opam --set-root)
 - opam update
+- opam install -y -q odoc
 - opam install -y -q . --deps-only
+- opam upgrade -y -q
 
 build:
   stage: build
   script:
+  - opam install -y -q .
   - dune build example/main.bc.js --profile release
   - dune build example/index.html
   - dune build example/stylesheet.css
+  - dune build @doc
   artifacts:
     paths:
     - _build
@@ -21,7 +25,6 @@ build:
 pages:
   stage: deploy
   script:
-  - dune build @doc
   - mkdir public
   - mv _build/main/_doc/_html public/doc
   - mv _build/main/example public/example
