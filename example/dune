@@ -6,4 +6,4 @@
 (executable
   (name main)
   (libraries base bexp)
-  (preprocess (pps js_of_ocaml-ppx ppx_symbol)))
+  (preprocess (pps js_of_ocaml-ppx ppx_bexp)))

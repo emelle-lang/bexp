@@ -6,16 +6,7 @@ before_script:
 - opam init -c 4.07.1 --root=.opam
 - eval $(opam env --root=.opam --set-root)
 - opam update
-- opam install -y -q dune
-- opam install -y -q menhir
-- opam install -y -q stdio
-- opam install -y -q core
-- opam install -y -q odoc
-- opam install -y -q ppxlib
-- opam install -y -q ppx_jane
-- opam install -y -q js_of_ocaml
-- opam install -y -q js_of_ocaml-ppx
-- opam upgrade -y -q
+- opam install -y -q . --deps-only
 
 build:
   stage: build
