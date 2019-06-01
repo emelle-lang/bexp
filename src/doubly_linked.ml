@@ -35,8 +35,7 @@ let iter ~f t =
 let fold ~f ~init t =
   let rec loop acc = function
     | None -> acc
-    | Some elt ->
-       loop (f acc elt.a) elt.next
+    | Some elt -> loop (f acc elt.a) elt.next
   in loop init t.front
 
 let insert_first t a =
@@ -48,7 +47,8 @@ let insert_first t a =
      elt
   | (Some head) as next ->
      let elt = { a; prev = None; next } in
-     head.prev <- Some elt;
+     t.front <- Some elt;
+     head.prev <- t.front;
      elt
 
 let remove t elt =
