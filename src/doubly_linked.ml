@@ -55,14 +55,14 @@ let remove t elt =
   begin match elt.prev with
   | None ->
      t.front <- elt.next
-  | Some head ->
-     head.next <- elt.next
+  | Some prev ->
+     prev.next <- elt.next
   end;
   begin match elt.next with
   | None ->
      t.back <- elt.prev
-  | Some tail ->
-     tail.prev <- elt.prev
+  | Some next ->
+     next.prev <- elt.prev
   end
 
 module Elt = struct
