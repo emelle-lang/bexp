@@ -12,7 +12,7 @@ homepage: "https://gitlab.com/emmeline/bexp"
 bug-reports: "https://gitlab.com/emmeline/bexp/issues"
 dev-repo: "git://gitlab.com/emmeline/bexp.git"
 depends: [
-  "core_kernel" {>= "v0.12.0"}
+  "base" {>= "v0.12.0"}
   "dune" {build & >= "1.6.0"}
   "js_of_ocaml" {>= "3.4.0"}
   "js_of_ocaml-ppx" {>= "3.4.0"}

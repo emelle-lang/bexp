@@ -1,8 +1,9 @@
-(* Copyright (C) 2019 TheAspiringHacker.
+(* Copyright (C) 2019 Types Logics Cats.
 
    This Source Code Form is subject to the terms of the Mozilla Public
    License, v. 2.0. If a copy of the MPL was not distributed with this
    file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
+
 (** This module contains types for defining the syntax of a block and a DSL for
     building a block syntax and converting it into a block. *)
 
