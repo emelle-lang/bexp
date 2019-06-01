@@ -4,28 +4,42 @@
    License, v. 2.0. If a copy of the MPL was not distributed with this
    file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
 
-open Core
+open Base
 open Stdio
 
-let command =
-  let open Command.Let_syntax in
-  Command.basic ~summary:"..."
-    [%map_open
-     let infile = anon ("infile" %: string)
-     and outfile = flag "o" (required string) ~doc:"Output file"
-     in
-     fun () ->
-     try
-       let file =
-         In_channel.with_file infile ~f:(fun ifstream ->
-             Parser.file Lexer.main (Lexing.from_channel ifstream)
-           ) in
-       let buf = Generate.emit_toplevel file in
-       Out_channel.with_file outfile ~f:(fun ofstream ->
-           Out_channel.output_buffer ofstream buf
-         )
-     with
-     | Failure str -> print_endline str
-    ]
+let infile = ref None
+let outfile = ref None
 
-let () = Command.run command
+let set_infile str =
+  match !infile with
+  | None -> infile := Some str
+  | Some _ -> failwith "Unexpected argument"
+
+let set_outfile str =
+  match !outfile with
+  | None -> outfile := Some str
+  | Some _ -> failwith "Unexpected argument"
+
+let go infile outfile =
+  try
+    let file =
+      In_channel.with_file infile ~f:(fun ifstream ->
+          Parser.file Lexer.main (Lexing.from_channel ifstream)
+        ) in
+    let buf = Generate.emit_toplevel file in
+    Out_channel.with_file outfile ~f:(fun ofstream ->
+        Out_channel.output_buffer ofstream buf
+      )
+  with
+  | Failure str -> print_endline str
+
+let () =
+  Caml.Arg.parse
+    ["-o", String set_outfile, "Output file"]
+    set_infile
+    "Generate OCaml boilerplate code from a specification";
+  match !infile, !outfile with
+  | Some infile, Some outfile -> go infile outfile
+  | None, Some _ -> print_endline "Missing outfile"
+  | Some _, None -> print_endline "Missing infile"
+  | None, None -> print_endline "Missing infile and outfile"

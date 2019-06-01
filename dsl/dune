@@ -5,5 +5,4 @@
 
 (executable
   (name bexp_dsl)
-  (libraries core stdio)
-  (preprocess (pps ppx_let)))
+  (libraries base stdio))
