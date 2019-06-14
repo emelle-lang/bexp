@@ -5,7 +5,7 @@ languages.
 
 ## Building
 
-    opam switch 4.07.1
+    opam switch 4.08.0
     opam install . --deps-only
     dune build example/main.bc.js
     dune build example/index.html
