@@ -2,7 +2,7 @@
 
    This Source Code Form is subject to the terms of the Mozilla Public
    License, v. 2.0. If a copy of the MPL was not distributed with this
-  file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
+   file, You can obtain one at http://mozilla.org/MPL/2.0/. *)
 
 %{
 %}
@@ -33,8 +33,9 @@ let symbol :=
   | TAB_COMMAND; { Syntax.Tab }
 
 let production :=
-  | prod_name = IDENT; COLON; symbols = list(symbol); action = OCAML_CODE;
-    { { Syntax.prod_name; symbols; action } }
+  | prod_name = IDENT; COLON; symbols = list(symbol); action_str = OCAML_CODE;
+    { { Syntax.prod_name; symbols
+      ; action = { action_str; action_pos = $startpos(action_str) } } }
 
 let nonterminal :=
   | nt_name = IDENT; COLON;
@@ -42,8 +43,10 @@ let nonterminal :=
     { { Syntax.nt_name; productions } }
 
 let file :=
-  | prelude = OCAML_CODE;
+  | op = OCAML_CODE;
     nonterminals = list(nonterminal);
-    finale = OCAML_CODE;
+    ed = OCAML_CODE;
     EOF;
-    { { Syntax.prelude; nonterminals; finale } }
+    { { Syntax.op = { action_str = op; action_pos = $startpos(op) }
+      ; nonterminals
+      ; ed = { action_str = ed; action_pos = $startpos(ed) } } }

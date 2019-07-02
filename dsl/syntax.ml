@@ -13,10 +13,15 @@ type symbol =
   | Tab
   | Newline
 
+type action = {
+    action_str : string;
+    action_pos : Lexing.position;
+  }
+
 type production = {
     prod_name : string;
     symbols : symbol list;
-    action : string;
+    action : action;
   }
 
 type nonterminal = {
@@ -25,7 +30,7 @@ type nonterminal = {
   }
 
 type t = {
-    prelude : string;
+    op : action;
     nonterminals : nonterminal list;
-    finale : string;
+    ed : action;
   }

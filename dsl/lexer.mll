@@ -25,17 +25,33 @@ rule main = parse
   | ':' { COLON }
   | '?' { QUESTION }
   | ';' { SEMICOLON }
-  | "{{" { OCAML_CODE (ocaml_code (Buffer.create 200) lexbuf) }
+  | "{{" {
+      let lineno, str =
+        ocaml_code lexbuf.Lexing.lex_curr_p.pos_lnum
+          (Buffer.create 200) lexbuf
+      in
+      (* If I call Lexing.new_line directly in ocaml_code, the line number
+         tracking doesn't work *)
+      lexbuf.Lexing.lex_curr_p <-
+        { lexbuf.lex_curr_p with Lexing.pos_lnum = lineno };
+      OCAML_CODE str
+    }
   | '\"' { STRING_LIT (lex_string (Buffer.create 20) lexbuf) }
   | "newline" { NEWLINE_COMMAND }
   | "tab" { TAB_COMMAND }
   | lident { IDENT (Lexing.lexeme lexbuf) }
   | eof { EOF }
 
-and ocaml_code buffer = parse
-  | "}}" { Buffer.contents buffer }
-  | _ { Buffer.add_string buffer (Lexing.lexeme lexbuf)
-      ; ocaml_code buffer lexbuf  }
+and ocaml_code lineno buffer = parse
+  | "}}" { (lineno, Buffer.contents buffer) }
+  | '\n' {
+      Buffer.add_string buffer (Lexing.lexeme lexbuf);
+      ocaml_code (lineno + 1) buffer lexbuf
+    }
+  | _ {
+      Buffer.add_string buffer (Lexing.lexeme lexbuf);
+      ocaml_code lineno buffer lexbuf
+    }
 
 and lex_string buffer = parse
   | '\"' { Buffer.contents buffer }

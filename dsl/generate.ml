@@ -8,32 +8,59 @@ open Base
 
 type t = {
     buf : Buffer.t;
-    indentation : int;
+    mutable indentation : int;
     indent : string;
+    mutable line : int;
+    out_file_name : string;
   }
 
 let indent t f =
-  f { t with indentation = t.indentation + 1 }
+  t.indentation <- t.indentation + 1;
+  f t;
+  t.indentation <- t.indentation - 1
+
+let count_newlines =
+  let rec f acc idx str =
+    if idx = String.length str then
+      acc
+    else if Char.equal (String.get str idx) '\n' then
+      f (acc + 1) (idx + 1) str
+    else
+      f acc (idx + 1) str
+  in f 0 0
+
+let add_string t str =
+  t.line <- t.line + count_newlines str;
+  Buffer.add_string t.buf str
+
+let add_char t c =
+  if Char.equal c '\n' then
+    t.line <- t.line + 1;
+  Buffer.add_char t.buf c
+
+let add_newline t =
+  t.line <- t.line + 1;
+  Buffer.add_char t.buf '\n'
 
 let tab t =
   for _ = 1 to t.indentation do
-    Buffer.add_string t.buf t.indent
+    add_string t t.indent
   done
 
 let print_line t f =
   tab t;
   let r = f t in
-  Buffer.add_char t.buf '\n';
+  add_newline t;
   r
 
 let print_strln t str =
-  print_line t (fun t -> Buffer.add_string t.buf str)
+  print_line t (fun t -> add_string t str)
 
 let rec print_concat ?(sep="") t = function
   | [] -> ()
-  | [str] -> Buffer.add_string t.buf str
+  | [str] -> add_string t str
   | str :: strs ->
-     Buffer.add_string t.buf str;
+     add_string t str;
      print_concat ~sep t strs
 
 let print_concatln ?sep t strs =
@@ -67,7 +94,7 @@ let emit_inputs t =
     | [] -> ()
     | (Syntax.Input default) :: xs ->
        print_line t (fun t ->
-           List.iter ~f:(Buffer.add_string t.buf)
+           List.iter ~f:(add_string t)
              [ "let input"
              ; Int.to_string idx
              ; " = Bexp.Widget.create_text_input \""
@@ -81,18 +108,18 @@ let emit_inputs t =
 let emit_symbols t arity =
   let print_symbol idx input_idx = function
     | Syntax.String str ->
-       Buffer.add_string t.buf "Bexp.Syntax.text \"";
-       Buffer.add_string t.buf (String.escaped str);
-       Buffer.add_char t.buf '"';
+       add_string t "Bexp.Syntax.text \"";
+       add_string t (String.escaped str);
+       add_char t '"';
        idx, input_idx
     | Nonterminal name ->
-       List.iter ~f:(Buffer.add_string t.buf)
+       List.iter ~f:(add_string t)
          [ "Bexp.Syntax.nt "
          ; "(" ^ getter ~arity ~idx ^ ")"
          ; " "; name; "_data" ];
        idx + 1, input_idx
     | Input _ ->
-       List.iter ~f:(Buffer.add_string t.buf)
+       List.iter ~f:(add_string t)
          [ "Bexp.Syntax.widget input"
          ; Int.to_string input_idx
          ; " ("
@@ -100,26 +127,26 @@ let emit_symbols t arity =
          ; ")" ];
        idx + 1, input_idx + 1
     | Tab ->
-       Buffer.add_string t.buf "Bexp.Syntax.tab";
+       add_string t "Bexp.Syntax.tab";
        idx, input_idx
     | Newline ->
-       Buffer.add_string t.buf "Bexp.Syntax.newline";
+       add_string t "Bexp.Syntax.newline";
        idx, input_idx
   in
   let rec print_symbols idx input_idx = function
     | [] ->
-       Buffer.add_string t.buf "]"
+       add_string t "]"
     | [symbol] ->
        let _ = print_symbol idx input_idx symbol in
-       Buffer.add_string t.buf " ]"
+       add_string t " ]"
     | symbol :: next ->
        let idx, input_idx = print_symbol idx input_idx symbol in
-       Buffer.add_char t.buf '\n';
+       add_char t '\n';
        tab t;
-       Buffer.add_string t.buf "; ";
+       add_string t "; ";
        print_symbols idx input_idx next
   in
-  Buffer.add_string t.buf "[ ";
+  add_string t "[ ";
   print_symbols 0 0
 
 let filter_args =
@@ -131,45 +158,58 @@ let filter_args =
 let emit_create t list =
   let print_elem t idx input_idx symbol f = match symbol with
     | Syntax.Input _ ->
-       List.iter ~f:(Buffer.add_string t.buf)
+       List.iter ~f:(add_string t)
          [ "Bexp.Widget.create_text_input input"
          ; Int.to_string input_idx
          ; "#value" ];
        f t;
        idx + 1, input_idx + 1
     | Nonterminal name ->
-       List.iter ~f:(Buffer.add_string t.buf)
+       List.iter ~f:(add_string t)
          [ "Bexp.Hole.create get_"; name; " "; name; "_data" ];
        f t;
        idx + 1, input_idx
     | _ -> idx, input_idx
   in
   let rec print_create t idx input_idx = function
-    | [] -> Buffer.add_char t.buf ')'
+    | [] -> add_char t ')'
     | [symbol] ->
        let _ = print_elem t idx input_idx symbol (fun _t -> ()) in
-       Buffer.add_string t.buf " )"
+       add_string t " )"
     | symbol :: next ->
        let idx, input_idx =
          print_elem t idx input_idx symbol (fun t ->
-             Buffer.add_char t.buf '\n';
+             add_newline t;
              tab t;
-             Buffer.add_string t.buf ", "
+             add_string t ", "
            ) in
        print_create t idx input_idx next
   in
-  Buffer.add_string t.buf "fun () ->\n";
+  add_string t "fun () ->\n";
   indent t (fun t ->
       tab t;
-      Buffer.add_string t.buf "( ";
+      add_string t "( ";
       print_create t 0 0 (filter_args list)
     )
 
+let emit_action t action =
+  add_string t "\n# ";
+  add_string t (Int.to_string action.Syntax.action_pos.Lexing.pos_lnum);
+  add_string t " \"";
+  add_string t (String.escaped action.action_pos.Lexing.pos_fname);
+  add_string t "\"\n";
+  add_string t action.action_str;
+  add_string t "\n# ";
+  add_string t (Int.to_string t.line);
+  add_string t " \"";
+  add_string t (String.escaped t.out_file_name);
+  add_string t "\"\n"
+
 let emit_prod t nt_name prod =
   print_line t (fun t ->
-      Buffer.add_string t.buf "let ";
-      Buffer.add_string t.buf prod.Syntax.prod_name;
-      Buffer.add_string t.buf "_def ="
+      add_string t "let ";
+      add_string t prod.Syntax.prod_name;
+      add_string t "_def ="
     );
   indent t (fun t ->
       emit_inputs t prod.Syntax.symbols;
@@ -178,31 +218,31 @@ let emit_prod t nt_name prod =
           let arity = arity prod.symbols in
           print_line t (fun t -> emit_symbols t arity prod.symbols);
           print_line t (fun t ->
-              Buffer.add_string t.buf "~create:(";
+              add_string t "~create:(";
               emit_create t prod.symbols;
-              Buffer.add_char t.buf ')'
+              add_char t ')'
             );
           print_line t (fun t ->
-              Buffer.add_string t.buf "~to_term:(";
-              Buffer.add_string t.buf prod.action;
-              Buffer.add_char t.buf ')');
+              add_string t "~to_term:(";
+              emit_action t prod.action;
+              add_char t ')');
           print_line t (fun t ->
-              Buffer.add_string t.buf "~symbol_of_term:symbol_of_";
-              Buffer.add_string t.buf nt_name)))
+              add_string t "~symbol_of_term:symbol_of_";
+              add_string t nt_name)))
 
 let emit_deflist t =
   let rec f = function
-    | [] -> Buffer.add_string t.buf " ]"
+    | [] -> add_string t " ]"
     | [prod] ->
-       Buffer.add_string t.buf
+       add_string t
          ("Bexp.Syntax " ^ prod.Syntax.prod_name ^ "_def ]")
     | prod :: next ->
-       Buffer.add_string t.buf
+       add_string t
          ("Bexp.Syntax " ^ prod.Syntax.prod_name ^ "_def");
-       Buffer.add_string t.buf "; ";
+       add_string t "; ";
        f next
   in
-  Buffer.add_string t.buf "[";
+  add_string t "[";
   f
 
 let emit_nonterminal t nt =
@@ -222,9 +262,14 @@ let emit_palette t prev nt =
         )
     )
 
-let emit_toplevel file =
-  let t = { buf = Buffer.create 100; indentation = 0; indent = "  " } in
-  Buffer.add_string t.buf file.Syntax.prelude;
+let emit_toplevel out_file_name file =
+  let t =
+    { buf = Buffer.create 1000
+    ; indentation = 0
+    ; indent = "  "
+    ; line = 1
+    ; out_file_name } in
+  emit_action t file.Syntax.op;
   let nt's_rev =
     let rec f acc = function
       | [] -> acc
@@ -240,5 +285,5 @@ let emit_toplevel file =
        f ("(Some (Bexp.Palette " ^ nt.nt_name ^ "_palette))") nt's
   in
   f "None" nt's_rev;
-  Buffer.add_string t.buf file.finale;
+  emit_action t file.ed;
   t.buf

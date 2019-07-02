@@ -24,9 +24,17 @@ let go infile outfile =
   try
     let file =
       In_channel.with_file infile ~f:(fun ifstream ->
-          Parser.file Lexer.main (Lexing.from_channel ifstream)
+          let lexer = Lexing.from_channel ifstream in
+          let lexer =
+            { lexer with
+              Lexing.lex_curr_p =
+                { lexer.Lexing.lex_curr_p with
+                  Lexing.pos_fname = infile }
+            }
+          in
+          Parser.file Lexer.main lexer
         ) in
-    let buf = Generate.emit_toplevel file in
+    let buf = Generate.emit_toplevel outfile file in
     Out_channel.with_file outfile ~f:(fun ofstream ->
         Out_channel.output_buffer ofstream buf
       )
