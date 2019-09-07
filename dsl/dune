@@ -5,4 +5,6 @@
 
 (executable
   (name bexp_dsl)
+  (public_name bexp_dsl)
+  (package bexp_dsl)
   (libraries base stdio))
