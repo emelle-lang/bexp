@@ -16,7 +16,7 @@ synopsis: "Grammar DSL for Bexp"
 description: "Grammar DSL for Bexp"
 depends: [
   "base" {>= "v0.12"}
-  "dune" {build & >= "1.6"}
+  "dune" {build & >= "1.10"}
   "menhir" {>= "20181113"}
   "stdio" {>= "v0.12"}
 ]
