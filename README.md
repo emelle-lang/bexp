@@ -5,12 +5,11 @@ languages.
 
 ## Building
 
-    opam switch 4.08.0
     opam install . --deps-only
     dune build example/main.bc.js
     dune build example/index.html
     dune build example/stylesheet.css
 
-Then, navigate to `_build/main/example/index.html`.
+Then, navigate to `_build/default/example/index.html`.
 
 **See the example at https://emmeline.gitlab.io/bexp/example/index.html.**
