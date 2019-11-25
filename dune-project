@@ -16,10 +16,10 @@
   (description
     "Library for making block-based languages")
   (depends
-    (base (>= v0.12))
-    (dune (and :build (>= 1.10)))
-    (js_of_ocaml (>= 3.4))
-    (js_of_ocaml-ppx (>= 3.4))
+    (base (and (>= v0.13) (< v0.14)))
+    (dune (and :build (>= 2.0)))
+    (js_of_ocaml (>= 3.5))
+    (js_of_ocaml-ppx (>= 3.5))
   )
 )
 
@@ -29,9 +29,9 @@
   (description
     "PPX helper for Bexp")
   (depends
-    (base (>= v0.12))
+    (base (and (>= v0.13) (< v0.14)))
     (bexp :dev)
-    (dune (and :build (>= 1.10)))
+    (dune (and :build (>= 2.0)))
     (ppxlib (and (>= 0.5.0) (< 0.9)))
   )
 )
@@ -42,9 +42,9 @@
   (description
     "Grammar DSL for Bexp")
   (depends
-    (base (>= v0.12))
-    (dune (and :build (>= 1.10)))
-    (menhir (>= 20181113))
-    (stdio (>= v0.12))
+    (base (and (>= v0.13) (< v0.14)))
+    (dune (and :build (>= 2.0)))
+    (menhir (>= 20190924))
+    (stdio (and (>= v0.13) (< v0.14)))
   )
 )

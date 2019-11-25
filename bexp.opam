@@ -15,8 +15,8 @@ dev-repo: "git://gitlab.com/emmeline/bexp.git"
 synopsis: "Visual language syntax library"
 description: "Library for making block-based languages"
 depends: [
-  "base" {>= "v0.12"}
-  "dune" {build & >= "1.10"}
-  "js_of_ocaml" {>= "3.4"}
-  "js_of_ocaml-ppx" {>= "3.4"}
+  "base" {>= "v0.13" & < "v0.14"}
+  "dune" {build & >= "2.0"}
+  "js_of_ocaml" {>= "3.5"}
+  "js_of_ocaml-ppx" {>= "3.5"}
 ]

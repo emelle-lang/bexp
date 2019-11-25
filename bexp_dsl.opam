@@ -15,8 +15,8 @@ dev-repo: "git://gitlab.com/emmeline/bexp.git"
 synopsis: "Grammar DSL for Bexp"
 description: "Grammar DSL for Bexp"
 depends: [
-  "base" {>= "v0.12"}
-  "dune" {build & >= "1.10"}
-  "menhir" {>= "20181113"}
-  "stdio" {>= "v0.12"}
+  "base" {>= "v0.13" & < "v0.14"}
+  "dune" {build & >= "2.0"}
+  "menhir" {>= "20190924"}
+  "stdio" {>= "v0.13" & < "v0.14"}
 ]
