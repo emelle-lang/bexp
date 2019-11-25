@@ -16,7 +16,7 @@ synopsis: "Visual language syntax library"
 description: "Library for making block-based languages"
 depends: [
   "base" {>= "v0.13" & < "v0.14"}
-  "dune" {build & >= "2.0"}
+  "dune" {>= "2.0"}
   "js_of_ocaml" {>= "3.5"}
   "js_of_ocaml-ppx" {>= "3.5"}
 ]

@@ -10,7 +10,8 @@ open Ppxlib
 let make_varpat ~loc name =
   { ppat_loc = loc
   ; ppat_desc = Ppat_var { txt = name; loc }
-  ; ppat_attributes = [] }
+  ; ppat_attributes = []
+  ; ppat_loc_stack = [] }
 
 let get_types list =
   let f (tys, nontys) item = match item.pstr_desc with
@@ -26,7 +27,8 @@ let get_typenames =
 let core_type ~loc desc =
   { ptyp_desc = desc
   ; ptyp_loc = loc
-  ; ptyp_attributes = [] }
+  ; ptyp_attributes = []
+  ; ptyp_loc_stack = [] }
 
 let ty_constr ~loc ident args =
   core_type ~loc (Ptyp_constr ({txt = ident; loc}, args))
@@ -61,7 +63,8 @@ let gen_wrapper ~loc name =
         (let lident_loc = { txt = Lident (String.capitalize name); loc } in
          Pexp_construct(lident_loc, Some [%expr data]))
     ; pexp_loc = loc
-    ; pexp_attributes = [] } in
+    ; pexp_attributes = []
+    ; pexp_loc_stack = [] } in
   [%stri let [%p fun_name] = fun data -> [%e constr_expr]]
 
 let gen_getter ~loc name =
@@ -71,7 +74,8 @@ let gen_getter ~loc name =
         (let lident_loc = { txt = Lident (String.capitalize name); loc } in
          Ppat_construct(lident_loc, Some [%pat? data]))
     ; ppat_loc = loc
-    ; ppat_attributes = [] } in
+    ; ppat_attributes = []
+    ; ppat_loc_stack = [] } in
   [%stri let [%p fun_name] = function
      | [%p constr_pat] -> Some data
      | _ -> None
